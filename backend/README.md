@@ -71,7 +71,3 @@ src/
 - Java 25
 - Gradle (Kotlin DSL)
 - JUnit 5
-
-## License
-
-See the repository root for license information.

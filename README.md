@@ -80,6 +80,3 @@ cd backend && ./gradlew build
 cd frontend && npm run build
 ```
 
-## License
-
-MIT

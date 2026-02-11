@@ -64,7 +64,3 @@ src/
 - `vite.config.ts` - Vite configuration
 - `tsconfig.json` - TypeScript configuration
 - `eslint.config.js` - ESLint configuration
-
-## License
-
-See the repository root for license information.
