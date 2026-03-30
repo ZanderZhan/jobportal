@@ -18,8 +18,6 @@ A microservice for managing job postings in the Job Portal application.
 - PostgreSQL 17+ (or Docker)
 - Docker & Docker Compose (optional)
 
-> **Note:** If your project path contains spaces, use `./run-gradle.sh` instead of `./gradlew`, or run the JAR directly with `java -jar build/libs/job-service-0.0.1-SNAPSHOT.jar`.
-
 ## Getting Started
 
 ### Option 1: Local Development
