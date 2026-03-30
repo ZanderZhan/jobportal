@@ -30,18 +30,14 @@ A microservice for managing job postings in the Job Portal application.
 
 2. **Build and run the application**:
    ```bash
-   # Build the JAR
-   ./run-gradle.sh build -x test
-   
-   # Run the application
-   java -jar build/libs/job-service-0.0.1-SNAPSHOT.jar
+   ./gradlew bootRun
    ```
 
 3. The service runs at `http://localhost:8081`
 
 ### Option 2: Docker Compose
 
-From the `jobportal` root directory:
+From the project root directory (`jobportal/`):
 
 ```bash
 docker-compose up -d
@@ -125,7 +121,7 @@ curl "http://localhost:8081/jobs?page=0&size=10&sort=createdAt,desc"
 ## Project Structure
 
 ```
-job-service/
+backend/job-service/
 ├── src/
 │   ├── main/
 │   │   ├── java/com/jobportal/jobservice/
