@@ -37,7 +37,7 @@ public class Job {
     @Column(name = "salary_currency", length = 3)
     private String salaryCurrency;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "job_requirements", joinColumns = @JoinColumn(name = "job_id"))
     @Column(name = "requirement")
     private List<String> requirements;
