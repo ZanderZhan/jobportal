@@ -1,0 +1,19 @@
+spring:
+  cloud:
+    gateway:
+      routes: []
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 5000
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8082
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,info
