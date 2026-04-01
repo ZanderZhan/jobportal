@@ -1,12 +1,14 @@
 package com.jobportal.authservice.config;
 
 import com.jobportal.authservice.service.JwtService;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,7 +20,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
 
 @Configuration
 @EnableWebSecurity
@@ -65,7 +66,7 @@ public class SecurityConfig {
                             request.setAttribute("email", claims.get("email"));
                             request.setAttribute("role", claims.get("role"));
                         }
-                    } catch (Exception e) {
+                    } catch (JwtException | AuthenticationException e) {
                         // Invalid token - continue without authentication
                     }
                 }

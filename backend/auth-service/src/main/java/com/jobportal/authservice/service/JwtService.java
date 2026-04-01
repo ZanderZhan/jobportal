@@ -11,8 +11,10 @@ import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
 import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
@@ -55,7 +57,7 @@ public class JwtService {
                 byte[] publicDecoded = Base64.getDecoder().decode(publicKeyContent);
                 X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(publicDecoded);
                 publicKey = keyFactory.generatePublic(publicKeySpec);
-            } catch (Exception e) {
+            } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
                 Logger logger = LoggerFactory.getLogger(JwtService.class);
                 logger.warn("Failed to load JWT keys: {}", e.getMessage());
                 privateKey = null;

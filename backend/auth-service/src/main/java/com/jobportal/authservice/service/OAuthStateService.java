@@ -1,9 +1,11 @@
 package com.jobportal.authservice.service;
 
+import com.jobportal.authservice.exception.AuthException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
@@ -56,10 +58,12 @@ public class OAuthStateService {
             String provider = extractJsonField(value, "provider");
             String codeVerifier = extractJsonField(value, "codeVerifier");
             String redirectUri = extractJsonField(value, "redirectUri");
-            String createdAt = extractJsonField(value, "createdAt");
 
             return new StateData(state, codeVerifier, null, redirectUri);
-        } catch (Exception e) {
+        } catch (AuthException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            // Invalid JSON format or parsing error
             return null;
         }
     }
@@ -71,13 +75,13 @@ public class OAuthStateService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    private String generateCodeChallenge(String codeVerifier) throws RuntimeException {
+    private String generateCodeChallenge(String codeVerifier) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(codeVerifier.getBytes());
             return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to generate code challenge", e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new AuthException("AUTH_INTERNAL_ERROR", "SHA-256 algorithm not available", 500);
         }
     }
 

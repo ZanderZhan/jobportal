@@ -50,7 +50,7 @@ public class JwksController {
             );
 
             return ResponseEntity.ok(Map.of("keys", new Object[]{jwk}));
-        } catch (Exception _) {
+        } catch (ClassCastException e) {
             return ResponseEntity.internalServerError().build();
         }
     }

@@ -56,7 +56,8 @@ public class RefreshTokenService {
             String ip = extractJsonField(value, "ip");
 
             return new TokenData(UUID.fromString(userId), issuedAt, userAgent, ip);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
+            // Invalid UUID or null values
             return null;
         }
     }
