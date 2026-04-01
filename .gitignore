@@ -36,3 +36,7 @@ Thumbs.db
 
 # Local specs
 openspec/
+
+# JWT Keys (never commit)
+backend/auth-service/jwt-private.pem
+backend/auth-service/jwt-public.pem

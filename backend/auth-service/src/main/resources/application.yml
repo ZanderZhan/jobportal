@@ -56,7 +56,7 @@ jwt:
   public-key-file: ${JWT_PUBLIC_KEY_FILE:}
   access-token-expiry: 3600
 
-allowed-email-domain: ${ALLOWED_EMAIL_DOMAIN:-}
+# allowed-email-domain: ${ALLOWED_EMAIL_DOMAIN:-}
 
 springdoc:
   api-docs:

@@ -1,0 +1,93 @@
+/* ── Spinner sizes ─────────────────────────────────────── */
+.spinner--sm {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+}
+
+.spinner--lg {
+  width: 44px;
+  height: 44px;
+  border-width: 3px;
+}
+
+/* ── Text colors ──────────────────────────────────────── */
+.text-primary { color: var(--color-primary); }
+.text-muted   { color: var(--color-text-muted); }
+.text-error   { color: var(--color-error); }
+
+/* ── Text sizes ───────────────────────────────────────── */
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+}
+
+/* ── Flex helpers ─────────────────────────────────────── */
+.flex-shrink-0 {
+  flex-shrink: 0;
+}
+
+.mt-1 {
+  margin-top: 1px;
+}
+
+/* ── Glow spot positions ──────────────────────────────── */
+.glow-spot--tl {
+  top: -100px;
+  left: -100px;
+}
+
+.glow-spot--br {
+  bottom: -150px;
+  right: -80px;
+}
+
+.glow-spot--tr {
+  top: 10%;
+  right: -80px;
+}
+
+.glow-spot--bl {
+  bottom: 5%;
+  left: -120px;
+}
+
+.glow-spot--center {
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* ── Mesh variants ───────────────────────────────────── */
+.mesh--reverse {
+  animation-direction: reverse;
+}
+
+/* ── Mesh opacity ─────────────────────────────────────── */
+.mesh--dim {
+  opacity: 0.7;
+}
+
+.mesh--dimmer {
+  opacity: 0.5;
+}
+
+/* ── Button size overrides ─────────────────────────────── */
+.btn--sm {
+  padding: 8px 16px;
+  font-size: 0.875rem;
+}
+
+/* ── Link color overrides ─────────────────────────────── */
+.link-primary {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ── Font weight helpers ──────────────────────────────── */
+.font-semibold {
+  font-weight: 600;
+}
