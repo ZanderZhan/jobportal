@@ -8,7 +8,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -20,6 +23,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -62,12 +66,18 @@ public class SecurityConfig {
                     try {
                         if (jwtService.hasValidKeys()) {
                             var claims = jwtService.validateAndGetClaims(token);
-                            request.setAttribute("userId", claims.getSubject());
-                            request.setAttribute("email", claims.get("email"));
-                            request.setAttribute("role", claims.get("role"));
+                            String userId = claims.getSubject();
+                            String role = claims.get("role", String.class);
+
+                            var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+                            var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
+                            authentication.setDetails(new JwtAuthenticationDetails(userId, claims.get("email", String.class), role));
+
+                            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(authentication);
                         }
                     } catch (JwtException | AuthenticationException e) {
                         // Invalid token - continue without authentication
+                        org.springframework.security.core.context.SecurityContextHolder.clearContext();
                     }
                 }
 
@@ -80,4 +90,6 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
     }
+
+    public record JwtAuthenticationDetails(String userId, String email, String role) {}
 }
