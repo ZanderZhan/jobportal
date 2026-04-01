@@ -78,7 +78,8 @@ public class SecurityConfig {
                             org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(authentication);
                         }
                     } catch (JwtException | AuthenticationException e) {
-                        // Invalid token - continue without authentication
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired token");
+                        return;
                         org.springframework.security.core.context.SecurityContextHolder.clearContext();
                     }
                 }
