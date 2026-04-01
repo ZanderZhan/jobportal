@@ -118,10 +118,32 @@ curl "http://localhost:8081/jobs?page=0&size=10&sort=createdAt,desc"
 - `SPRING_DATASOURCE_USERNAME` - Database username
 - `SPRING_DATASOURCE_PASSWORD` - Database password
 
+## Seeding Sample Data
+
+Use the `scripts/seed-jobs.sh` script to populate the database with 100 sample job postings:
+
+```bash
+# Make executable (first time only)
+chmod +x scripts/seed-jobs.sh
+
+# Run against local service
+./scripts/seed-jobs.sh
+```
+
+The script generates varied job data including:
+- 20 different job titles (Software Engineer, Data Scientist, etc.)
+- 10 companies and locations
+- Random salary ranges ($50k-$200k)
+- Random employment types and requirements
+
+> **Note:** The Job Service must be running before executing the seed script.
+
 ## Project Structure
 
 ```
 backend/job-service/
+├── scripts/
+│   └── seed-jobs.sh        # Sample data seeding script
 ├── src/
 │   ├── main/
 │   │   ├── java/com/jobportal/jobservice/
