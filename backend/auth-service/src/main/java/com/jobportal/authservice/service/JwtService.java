@@ -1,6 +1,7 @@
 package com.jobportal.authservice.service;
 
 import com.jobportal.authservice.entity.User;
+import com.jobportal.authservice.exception.AuthException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -50,26 +51,28 @@ public class JwtService {
                 .replaceAll("\\s", "")
             : "";
 
-        if (!privateKeyContent.isEmpty() && !publicKeyContent.isEmpty()) {
-            try {
-                byte[] decoded = Base64.getDecoder().decode(privateKeyContent);
-                PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(decoded);
-                KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-                privateKey = keyFactory.generatePrivate(keySpec);
+        if (privateKeyContent.isEmpty() || publicKeyContent.isEmpty()) {
+            throw new IllegalStateException(
+                "JWT keys not configured. Set jwt.private-key and jwt.public-key properties.");
+        }
+        try {
+            byte[] decoded = Base64.getDecoder().decode(privateKeyContent);
+            PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(decoded);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            privateKey = keyFactory.generatePrivate(keySpec);
 
-                byte[] publicDecoded = Base64.getDecoder().decode(publicKeyContent);
-                X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(publicDecoded);
-                publicKey = keyFactory.generatePublic(publicKeySpec);
-            } catch (NoSuchAlgorithmException | InvalidKeySpecException | IllegalArgumentException e) {
-                Logger logger = LoggerFactory.getLogger(JwtService.class);
-                logger.warn("Failed to load JWT keys: {}", e.getMessage());
-                privateKey = null;
-                publicKey = null;
-            }
+            byte[] publicDecoded = Base64.getDecoder().decode(publicKeyContent);
+            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(publicDecoded);
+            publicKey = keyFactory.generatePublic(publicKeySpec);
+        } catch (NoSuchAlgorithmException | InvalidKeySpecException | IllegalArgumentException e) {
+            throw new IllegalStateException("Failed to parse JWT keys: " + e.getMessage(), e);
         }
     }
 
     public String generateAccessToken(User user) {
+        if (privateKey == null) {
+            throw new AuthException("TOKEN_ERROR", "JWT signing keys not available", 500);
+        }
         Date now = new Date();
         Date expiry = new Date(now.getTime() + accessTokenExpirySeconds * 1000);
 
