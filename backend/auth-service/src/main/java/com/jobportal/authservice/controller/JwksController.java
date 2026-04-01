@@ -37,8 +37,13 @@ public class JwksController {
                 ? java.util.Arrays.copyOfRange(modulusBytes, 1, modulusBytes.length)
                 : modulusBytes;
 
+            // Remove leading zero byte from exponent as well
+            byte[] exponent = exponentBytes.length > 1 && exponentBytes[0] == 0
+                ? java.util.Arrays.copyOfRange(exponentBytes, 1, exponentBytes.length)
+                : exponentBytes;
+
             String n = Base64.getUrlEncoder().withoutPadding().encodeToString(modulus);
-            String e = Base64.getUrlEncoder().withoutPadding().encodeToString(exponentBytes);
+            String e = Base64.getUrlEncoder().withoutPadding().encodeToString(exponent);
 
             Map<String, Object> jwk = Map.of(
                 "kty", "RSA",
