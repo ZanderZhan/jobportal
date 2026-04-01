@@ -12,7 +12,7 @@ FROM eclipse-temurin:25-jre-alpine
 
 WORKDIR /app
 
-RUN addgroup -S auth && adduser -S auth -G auth
+RUN apk add --no-cache curl && addgroup -S auth && adduser -S auth -G auth
 
 COPY --from=builder /app/build/libs/*.jar app.jar
 
