@@ -7,7 +7,7 @@ spring:
   datasource:
     url: jdbc:postgresql://postgres:5432/jobportal
     username: postgres
-    password: postgres
+    password: ${SPRING_DATASOURCE_PASSWORD:-postgres}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -37,20 +37,20 @@ logging:
 
 google:
   client:
-    id: ${GOOGLE_CLIENT_ID:}
-    secret: ${GOOGLE_CLIENT_SECRET:}
-    redirect-uri: ${GOOGLE_REDIRECT_URI:http://auth-service:8082/api/auth/google/callback}
+    id: ${GOOGLE_CLIENT_ID:-}
+    secret: ${GOOGLE_CLIENT_SECRET:-}
+    redirect-uri: ${GOOGLE_REDIRECT_URI:-http://auth-service:8082/api/auth/google/callback}
 
 microsoft:
   client:
-    id: ${MICROSOFT_CLIENT_ID:}
-    secret: ${MICROSOFT_CLIENT_SECRET:}
-    redirect-uri: ${MICROSOFT_REDIRECT_URI:http://auth-service:8082/api/auth/microsoft/callback}
-  tenant: ${MICROSOFT_TENANT_ID:common}
+    id: ${MICROSOFT_CLIENT_ID:-}
+    secret: ${MICROSOFT_CLIENT_SECRET:-}
+    redirect-uri: ${MICROSOFT_REDIRECT_URI:-http://auth-service:8082/api/auth/microsoft/callback}
+  tenant: ${MICROSOFT_TENANT_ID:-common}
 
 jwt:
-  private-key: ${JWT_PRIVATE_KEY:}
-  public-key: ${JWT_PUBLIC_KEY:}
+  private-key: ${JWT_PRIVATE_KEY:-}
+  public-key: ${JWT_PUBLIC_KEY:-}
   access-token-expiry: 3600
 
-allowed-email-domain: ${ALLOWED_EMAIL_DOMAIN:}
+allowed-email-domain: ${ALLOWED_EMAIL_DOMAIN:-}
