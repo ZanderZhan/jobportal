@@ -17,6 +17,7 @@ public class OAuthStateService {
 
     private static final String STATE_PREFIX = "oauth_state:";
     private static final long STATE_TTL_SECONDS = 600; // 10 minutes
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final StringRedisTemplate redisTemplate;
 
@@ -68,9 +69,8 @@ public class OAuthStateService {
     }
 
     private String generateCodeVerifier() {
-        SecureRandom random = new SecureRandom();
         byte[] bytes = new byte[32];
-        random.nextBytes(bytes);
+        SECURE_RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
