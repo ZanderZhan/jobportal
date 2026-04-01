@@ -15,6 +15,43 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: jobportal-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  gateway:
+    build:
+      context: ./backend/gateway
+      dockerfile: Dockerfile
+    container_name: gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JOB_SERVICE_URL: http://job-service:8081
+      AUTH_SERVICE_URL: http://auth-service:8082
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      AUTH_JWK_SET_URI: http://auth-service:8082/.well-known/jwks.json
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      job-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   job-service:
     build:
@@ -33,6 +70,42 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jobportal
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${BACKEND_URL:-http://localhost:8082}/api/auth/google/callback
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
+      MICROSOFT_REDIRECT_URI: ${BACKEND_URL:-http://localhost:8082}/api/auth/microsoft/callback
+      ALLOWED_EMAIL_DOMAIN: ${ALLOWED_EMAIL_DOMAIN:-}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3

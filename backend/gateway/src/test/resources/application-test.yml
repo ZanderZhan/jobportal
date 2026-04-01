@@ -1,0 +1,32 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:0/dummy-jwks
+  cloud:
+    gateway:
+      routes: []
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 5000
+
+gateway:
+  cors:
+    allowed-origins: http://localhost:5173
+  correlation-id-header: X-Request-ID
+  ratelimit:
+    requests-per-minute: 200
+    auth-requests-per-minute: 5
+
+services:
+  job-service:
+    url: http://localhost:8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,info,gateway
+  tracing:
+    enabled: true
