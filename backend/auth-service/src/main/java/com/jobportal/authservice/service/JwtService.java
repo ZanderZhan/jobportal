@@ -83,7 +83,7 @@ public class JwtService {
             .claim("role", user.getRole().name())
             .issuedAt(now)
             .expiration(expiry)
-            .header().add("kid", KEY_ID)
+            .header().add("kid", KEY_ID).and()
             .signWith(privateKey)
             .compact();
     }

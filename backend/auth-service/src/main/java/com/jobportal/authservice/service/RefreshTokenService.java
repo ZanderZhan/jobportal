@@ -12,6 +12,8 @@ import java.util.concurrent.TimeUnit;
 public class RefreshTokenService {
 
     private static final String REFRESH_PREFIX = "refresh:";
+    private static final String USER_TOKENS_PREFIX = "user:tokens:";
+    private static final String TOKEN_USER_PREFIX = "token:user:";
     private static final long REFRESH_TOKEN_TTL_DAYS = 30;
 
     private final StringRedisTemplate redisTemplate;
@@ -37,6 +39,8 @@ public class RefreshTokenService {
         );
 
         redisTemplate.opsForValue().set(key, value, ttlSeconds, TimeUnit.SECONDS);
+        redisTemplate.opsForSet().add(USER_TOKENS_PREFIX + userId, token);
+        redisTemplate.opsForValue().set(TOKEN_USER_PREFIX + token, userId.toString(), ttlSeconds, TimeUnit.SECONDS);
         return token;
     }
 
@@ -45,6 +49,12 @@ public class RefreshTokenService {
         String value = redisTemplate.opsForValue().get(key);
 
         if (value == null) {
+            // Token expired or never existed — clean up stale references
+            String userId = redisTemplate.opsForValue().get(TOKEN_USER_PREFIX + token);
+            if (userId != null) {
+                redisTemplate.opsForSet().remove(USER_TOKENS_PREFIX + userId, token);
+                redisTemplate.delete(TOKEN_USER_PREFIX + token);
+            }
             return null;
         }
 
@@ -64,20 +74,28 @@ public class RefreshTokenService {
 
     public boolean revokeRefreshToken(String token) {
         String key = REFRESH_PREFIX + token;
+        String value = redisTemplate.opsForValue().get(key);
+        if (value == null) {
+            return false;
+        }
+        String userId = extractJsonField(value, "userId");
+        if (userId != null && !userId.isEmpty()) {
+            redisTemplate.opsForSet().remove(USER_TOKENS_PREFIX + userId, token);
+        }
+        redisTemplate.delete(TOKEN_USER_PREFIX + token);
         Boolean deleted = redisTemplate.delete(key);
         return Boolean.TRUE.equals(deleted);
     }
 
     public void revokeAllUserTokens(UUID userId) {
-        // Scan for all refresh tokens for this user
-        var keys = redisTemplate.keys(REFRESH_PREFIX + "*");
-        if (keys != null) {
-            for (String key : keys) {
-                String value = redisTemplate.opsForValue().get(key);
-                if (value != null && value.contains(userId.toString())) {
-                    redisTemplate.delete(key);
-                }
+        String tokenSetKey = USER_TOKENS_PREFIX + userId;
+        var tokens = redisTemplate.opsForSet().members(tokenSetKey);
+        if (tokens != null && !tokens.isEmpty()) {
+            for (String token : tokens) {
+                redisTemplate.delete(REFRESH_PREFIX + token);
+                redisTemplate.delete(TOKEN_USER_PREFIX + token);
             }
+            redisTemplate.delete(tokenSetKey);
         }
     }
 

@@ -80,7 +80,6 @@ public class SecurityConfig {
                     } catch (JwtException | AuthenticationException e) {
                         response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired token");
                         return;
-                        org.springframework.security.core.context.SecurityContextHolder.clearContext();
                     }
                 }
 
