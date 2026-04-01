@@ -30,6 +30,8 @@ gateway:
 services:
   job-service:
     url: ${JOB_SERVICE_URL:http://job-service:8081}
+  auth-service:
+    url: ${AUTH_SERVICE_URL:http://auth-service:8082}
 
 management:
   endpoints:

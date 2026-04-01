@@ -12,12 +12,18 @@ public class RouteConfig {
     @Value("${services.job-service.url:http://localhost:8081}")
     private String jobServiceUrl;
 
+    @Value("${services.auth-service.url:http://localhost:8082}")
+    private String authServiceUrl;
+
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
             .route("job-service", r -> r
                 .path("/api/jobs/**")
                 .uri(jobServiceUrl))
+            .route("auth-service", r -> r
+                .path("/api/auth/**")
+                .uri(authServiceUrl))
             .build();
     }
 }

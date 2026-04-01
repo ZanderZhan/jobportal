@@ -38,9 +38,12 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       JOB_SERVICE_URL: http://job-service:8081
+      AUTH_SERVICE_URL: http://auth-service:8082
       CORS_ALLOWED_ORIGINS: http://localhost:5173
       AUTH_JWK_SET_URI: http://auth-service:8082/.well-known/jwks.json
     depends_on:
+      auth-service:
+        condition: service_healthy
       job-service:
         condition: service_healthy
     healthcheck:
