@@ -1,2 +1,8 @@
 .DS_Store
 .vscode/
+
+# Worktrees (isolated workspaces)
+.worktrees/
+
+# Local documentation (not for version control)
+docs/superpowers/specs/
