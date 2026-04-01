@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.jobportal.gateway.config.RouteConfigTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-04-01T15:50:45.398Z" hostname="SantaClones-MacBook-Pro-5.local" time="0.038">
+  <properties/>
+  <testcase name="shouldRouteApiJobsRequestsToJobService()" classname="com.jobportal.gateway.config.RouteConfigTest" time="0.029"/>
+  <testcase name="shouldHaveJobServiceRoute()" classname="com.jobportal.gateway.config.RouteConfigTest" time="0.003"/>
+  <system-out><![CDATA[2026-04-01T16:50:45.399+01:00  INFO 64149 --- [gateway] [    Test worker] [                                                 ] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.jobportal.gateway.config.RouteConfigTest]: RouteConfigTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-04-01T16:50:45.402+01:00  INFO 64149 --- [gateway] [    Test worker] [                                                 ] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.jobportal.gateway.GatewayApplication for test class com.jobportal.gateway.config.RouteConfigTest
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
