@@ -42,11 +42,16 @@ management:
   health:
     gateway:
       enabled: true
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
 
 logging:
   level:
     com.jobportal.gateway: DEBUG
     org.springframework.cloud.gateway: DEBUG
+    org.springframework.cloud.gateway.filter.ForwardPath: DEBUG
 
 resilience4j:
   ratelimiter:
@@ -76,3 +81,10 @@ resilience4j:
         retryExceptions:
           - java.io.IOException
           - java.util.concurrent.TimeoutException
+
+otel:
+  exporter:
+    zipkin:
+      endpoint: ${OTEL_EXPORTER_ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+  service:
+    name: gateway
