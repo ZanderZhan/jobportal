@@ -36,6 +36,7 @@ public class SecurityConfig {
                 // All other requests require authentication
                 .anyExchange().authenticated()
             )
+            .oauth2ResourceServer(ServerHttpSecurity.OAuth2ResourceServerSpec::jwt)
             .build();
     }
 
