@@ -7,6 +7,12 @@ spring:
   cloud:
     gateway:
       routes: []
+      filter:
+        request-rate-limiter:
+          enabled: true
+          default-filter:
+            rate-limit: 100
+            burst-capacity: 100
   security:
     oauth2:
       resourceserver:
@@ -17,6 +23,9 @@ gateway:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS}
   correlation-id-header: X-Request-ID
+  ratelimit:
+    requests-per-minute: 100
+    auth-requests-per-minute: 10
 
 services:
   job-service:
@@ -38,3 +47,32 @@ logging:
   level:
     com.jobportal.gateway: DEBUG
     org.springframework.cloud.gateway: DEBUG
+
+resilience4j:
+  ratelimiter:
+    instances:
+      default:
+        limitForPeriod: 100
+        limitRefreshPeriod: 60s
+        timeoutDuration: 100ms
+
+  circuitbreaker:
+    instances:
+      jobService:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 30s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+
+  retry:
+    instances:
+      jobService:
+        maxAttempts: 3
+        waitDuration: 500ms
+        retryExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
