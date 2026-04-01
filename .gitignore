@@ -6,3 +6,19 @@
 
 # Local documentation (not for version control)
 docs/superpowers/specs/
+
+# Gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# IDE (JetBrains)
+*.log
+
+# OS
+Thumbs.db
