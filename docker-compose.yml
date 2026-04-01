@@ -39,7 +39,7 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       JOB_SERVICE_URL: http://job-service:8081
       AUTH_SERVICE_URL: http://auth-service:8082
-      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost
       AUTH_JWK_SET_URI: http://auth-service:8082/.well-known/jwks.json
     depends_on:
       auth-service:
@@ -110,6 +110,20 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "80:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 volumes:
   postgres_data:
