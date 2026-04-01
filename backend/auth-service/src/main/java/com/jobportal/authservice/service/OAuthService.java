@@ -76,13 +76,13 @@ public class OAuthService {
     @Transactional
     public TokenResponse handleGoogleCallback(OAuthCallbackRequest request, String userAgent, String ip) {
         // Validate state
-        OAuthStateService.StateData stateData = oAuthStateService.validateAndConsumeState(request.getState());
+        OAuthStateService.StateData stateData = oAuthStateService.validateAndConsumeState(request.state());
         if (stateData == null) {
             throw new AuthException("AUTH_OAUTH_STATE_INVALID", "Invalid or expired OAuth state", 400);
         }
 
         // Exchange code for tokens
-        Map<String, String> googleTokens = exchangeGoogleCode(request.getCode(), request.getRedirectUri());
+        Map<String, String> googleTokens = exchangeGoogleCode(request.code(), request.redirectUri());
 
         // Validate idToken and get user info
         Map<String, String> userInfo = getGoogleUserInfo(googleTokens.get("access_token"));
@@ -119,13 +119,13 @@ public class OAuthService {
     @Transactional
     public TokenResponse handleMicrosoftCallback(OAuthCallbackRequest request, String userAgent, String ip) {
         // Validate state
-        OAuthStateService.StateData stateData = oAuthStateService.validateAndConsumeState(request.getState());
+        OAuthStateService.StateData stateData = oAuthStateService.validateAndConsumeState(request.state());
         if (stateData == null) {
             throw new AuthException("AUTH_OAUTH_STATE_INVALID", "Invalid or expired OAuth state", 400);
         }
 
         // Exchange code for tokens
-        Map<String, String> microsoftTokens = exchangeMicrosoftCode(request.getCode(), request.getRedirectUri());
+        Map<String, String> microsoftTokens = exchangeMicrosoftCode(request.code(), request.redirectUri());
 
         // Get user info
         Map<String, String> userInfo = getMicrosoftUserInfo(microsoftTokens.get("access_token"));

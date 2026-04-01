@@ -42,27 +42,27 @@ public class AuthService {
     public UserResponse register(RegisterRequest request) {
         // Validate email domain if restriction is set
         if (allowedEmailDomain != null && !allowedEmailDomain.isEmpty()) {
-            String emailDomain = extractEmailDomain(request.getEmail());
+            String emailDomain = extractEmailDomain(request.email());
             if (!allowedEmailDomain.equalsIgnoreCase(emailDomain)) {
                 throw new AuthException("AUTH_EMAIL_DOMAIN_NOT_ALLOWED", "Email must be from " + allowedEmailDomain + " domain", 403);
             }
         }
 
         // Check if email already exists
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(request.email())) {
             throw new AuthException("AUTH_EMAIL_EXISTS", "Email already registered", 409);
         }
 
         // Validate password strength
-        if (!STRONG_PASSWORD_PATTERN.matcher(request.getPassword()).matches()) {
+        if (!STRONG_PASSWORD_PATTERN.matcher(request.password()).matches()) {
             throw new AuthException("AUTH_WEAK_PASSWORD", "Password must be at least 8 characters with at least one letter and one number", 400);
         }
 
         // Create user
         User user = new User();
-        user.setEmail(request.getEmail());
-        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setName(request.getName());
+        user.setEmail(request.email());
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setName(request.name());
         user.setRole(Role.JOB_SEEKER);
         user.setEmailVerified(false);
 
@@ -73,7 +73,7 @@ public class AuthService {
 
     @Transactional
     public TokenResponse login(LoginRequest request, String userAgent, String ip) {
-        User user = userRepository.findByEmail(request.getEmail())
+        User user = userRepository.findByEmail(request.email())
             .orElseThrow(() -> new AuthException("AUTH_INVALID_CREDENTIALS", "Invalid email or password", 401));
 
         if (!user.getEnabled()) {
@@ -84,7 +84,7 @@ public class AuthService {
             throw new AuthException("AUTH_INVALID_CREDENTIALS", "This account uses OAuth login", 401);
         }
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new AuthException("AUTH_INVALID_CREDENTIALS", "Invalid email or password", 401);
         }
 
