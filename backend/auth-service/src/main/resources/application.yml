@@ -50,8 +50,10 @@ microsoft:
   tenant: ${MICROSOFT_TENANT_ID:-common}
 
 jwt:
-  private-key: ${JWT_PRIVATE_KEY:-}
-  public-key: ${JWT_PUBLIC_KEY:-}
+  private-key: ${JWT_PRIVATE_KEY:${jwt.private-key-file:}}
+  public-key: ${JWT_PUBLIC_KEY:${jwt.public-key-file:}}
+  private-key-file: ${JWT_PRIVATE_KEY_FILE:}
+  public-key-file: ${JWT_PUBLIC_KEY_FILE:}
   access-token-expiry: 3600
 
 allowed-email-domain: ${ALLOWED_EMAIL_DOMAIN:-}

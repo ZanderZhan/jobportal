@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
+import org.springframework.core.io.Resource;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
@@ -31,6 +32,12 @@ public class JwtService {
     @Value("${jwt.public-key:}")
     private String publicKeyPem;
 
+    @Value("${jwt.private-key-file:}")
+    private String privateKeyFile;
+
+    @Value("${jwt.public-key-file:}")
+    private String publicKeyFile;
+
     @Value("${jwt.access-token-expiry:3600}")
     private long accessTokenExpirySeconds;
 
@@ -40,20 +47,13 @@ public class JwtService {
 
     @PostConstruct
     public void init() {
-        String privateKeyContent = privateKeyPem != null
-            ? privateKeyPem.replace("-----BEGIN PRIVATE KEY-----", "")
-                .replace("-----END PRIVATE KEY-----", "")
-                .replaceAll("\\s", "")
-            : "";
-        String publicKeyContent = publicKeyPem != null
-            ? publicKeyPem.replace("-----BEGIN PUBLIC KEY-----", "")
-                .replace("-----END PUBLIC KEY-----", "")
-                .replaceAll("\\s", "")
-            : "";
+        String privateKeyContent = resolveKeyContent(privateKeyPem, privateKeyFile, "private");
+        String publicKeyContent = resolveKeyContent(publicKeyPem, publicKeyFile, "public");
 
         if (privateKeyContent.isEmpty() || publicKeyContent.isEmpty()) {
             throw new IllegalStateException(
-                "JWT keys not configured. Set jwt.private-key and jwt.public-key properties.");
+                "JWT keys not configured. Set jwt.private-key / jwt.private-key-file " +
+                "and jwt.public-key / jwt.public-key-file properties.");
         }
         try {
             byte[] decoded = Base64.getDecoder().decode(privateKeyContent);
@@ -67,6 +67,26 @@ public class JwtService {
         } catch (NoSuchAlgorithmException | InvalidKeySpecException | IllegalArgumentException e) {
             throw new IllegalStateException("Failed to parse JWT keys: " + e.getMessage(), e);
         }
+    }
+
+    private String resolveKeyContent(String directValue, String filePath, String keyType) {
+        String content = directValue != null ? directValue.trim() : "";
+        if (content.isEmpty() && filePath != null && !filePath.isBlank()) {
+            try {
+                org.springframework.core.io.Resource resource = new org.springframework.core.io.FileSystemResource(filePath.trim());
+                if (resource.exists()) {
+                    content = resource.getContentAsString(java.nio.charset.StandardCharsets.UTF_8).trim();
+                }
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to read JWT " + keyType + " key from file: " + e.getMessage(), e);
+            }
+        }
+        if (content.startsWith("-----BEGIN")) {
+            content = content.replace("-----BEGIN " + (keyType.equals("private") ? "PRIVATE" : "PUBLIC") + " KEY-----", "")
+                .replace("-----END " + (keyType.equals("private") ? "PRIVATE" : "PUBLIC") + " KEY-----", "")
+                .replaceAll("\\s", "");
+        }
+        return content;
     }
 
     public String generateAccessToken(User user) {
