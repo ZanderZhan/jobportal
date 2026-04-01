@@ -13,6 +13,9 @@ gateway:
   cors:
     allowed-origins: http://localhost:5173
   correlation-id-header: X-Request-ID
+  ratelimit:
+    requests-per-minute: 200
+    auth-requests-per-minute: 5
 
 services:
   job-service:
