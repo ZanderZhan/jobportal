@@ -1,0 +1,41 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    database-platform: org.hibernate.dialect.H2Dialect
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  private-key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDHv4xAqZ3f
+    zVJGv8Rj0KkFkwKzA8P0Eqe5p0RqL6qGp9j3E1pN0xXK9p8K4qL5qM9p7K
+    qpL5p0RqL6qGp9j3E1pN0xXK9p8K4qL5qM9p7KqpL5p0RqL6qGp9j3E1pN0
+    xXK9p8K4qL5qM9p7KqpL5p0RqL6qGp9j3E1pN0xXK9p8K4qL5qM9p7KqpL5
+    xXK9p8K4qL5qM9p7KqpL5p0RqL6qGp9j3E1pN0xXK9p8K4qL5qM9p7KqpL5
+    -----END PRIVATE KEY-----
+  public-key: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx7+MQAqd3+zVJ
+    Gv8Rj0KkFkwKzA8P0Eqe5p0RqL6qGp9j3E1pN0xXK9p8K4qL5qM9p7KqpL
+    5p0RqL6qGp9j3E1pN0xXK9p8K4qL5qM9p7KqpL5p0RqL6qGp9j3E1pN0xX
+    K9p8K4qL5qM9p7KqpL5p0RqL6qGp9j3E1pN0xXK9p8K4qL5qM9p7KqpL5p0
+    RqL6qGp9j3E1pN0xXK9p8K4qL5qM9p7KqpL5p0RqL6qGp9j3E1pN0xXK9p8
+    K4qL5qM9p7KqpL5p0RqL6qGp9j3E1pN0xXK9p8K4qL5qM9p7KqpL5wIDAQAB
+    -----END PUBLIC KEY-----
+  access-token-expiry: 3600
+
+allowed-email-domain:

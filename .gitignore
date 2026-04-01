@@ -1,2 +1,14 @@
 .DS_Store
 .vscode/
+.idea/
+.claude/
+.gradle/
+**/build/
+**/.gradle/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+openspec/
+
