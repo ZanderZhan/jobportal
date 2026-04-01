@@ -29,6 +29,7 @@ repositories {
 dependencies {
     // Spring Cloud Gateway
     implementation("org.springframework.cloud:spring-cloud-starter-gateway")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis-reactive")
 
     // OAuth2 Resource Server
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")

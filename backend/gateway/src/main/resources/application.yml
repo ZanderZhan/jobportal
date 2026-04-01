@@ -6,13 +6,15 @@ spring:
     name: gateway
   cloud:
     gateway:
-      routes: []
-      filter:
-        request-rate-limiter:
-          enabled: true
-          default-filter:
-            rate-limit: 100
-            burst-capacity: 100
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: 100
+            redis-rate-limiter.burst-capacity: 100
+  data:
+    redis:
+      host: localhost
+      port: 6379
   security:
     oauth2:
       resourceserver:
@@ -30,6 +32,8 @@ gateway:
 services:
   job-service:
     url: ${JOB_SERVICE_URL:http://localhost:8081}
+  auth-service:
+    url: ${AUTH_SERVICE_URL:http://localhost:8082}
 
 management:
   endpoints:

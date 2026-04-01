@@ -6,13 +6,15 @@ spring:
     name: gateway
   cloud:
     gateway:
-      routes: []
-      filter:
-        request-rate-limiter:
-          enabled: true
-          default-filter:
-            rate-limit: 100
-            burst-capacity: 100
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: 100
+            redis-rate-limiter.burst-capacity: 100
+  data:
+    redis:
+      host: redis
+      port: 6379
   security:
     oauth2:
       resourceserver:
@@ -23,9 +25,6 @@ gateway:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS}
   correlation-id-header: X-Request-ID
-  ratelimit:
-    requests-per-minute: 100
-    auth-requests-per-minute: 10
 
 services:
   job-service:
