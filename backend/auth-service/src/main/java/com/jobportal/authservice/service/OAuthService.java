@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
@@ -27,6 +28,7 @@ public class OAuthService {
     private final OAuthStateService oAuthStateService;
     private final RefreshTokenService refreshTokenService;
     private final JwtService jwtService;
+    private final RestTemplate restTemplate;
 
     @Value("${google.client.id:}")
     private String googleClientId;
@@ -56,11 +58,13 @@ public class OAuthService {
             UserRepository userRepository,
             OAuthStateService oAuthStateService,
             RefreshTokenService refreshTokenService,
-            JwtService jwtService) {
+            JwtService jwtService,
+            RestTemplate restTemplate) {
         this.userRepository = userRepository;
         this.oAuthStateService = oAuthStateService;
         this.refreshTokenService = refreshTokenService;
         this.jwtService = jwtService;
+        this.restTemplate = restTemplate;
     }
 
     public String getGoogleAuthorizationUrl(String state, String codeChallenge) {
@@ -75,33 +79,29 @@ public class OAuthService {
 
     @Transactional
     public TokenResponse handleGoogleCallback(OAuthCallbackRequest request, String userAgent, String ip) {
-        // Validate state
         OAuthStateService.StateData stateData = oAuthStateService.validateAndConsumeState(request.state());
         if (stateData == null) {
             throw new AuthException("AUTH_OAUTH_STATE_INVALID", "Invalid or expired OAuth state", 400);
         }
 
-        // Exchange code for tokens
-        Map<String, String> googleTokens = exchangeGoogleCode(request.code(), request.redirectUri());
+        Map<String, String> googleTokens = exchangeCode(
+            request.code(),
+            request.redirectUri(),
+            googleClientId,
+            googleClientSecret,
+            googleRedirectUri,
+            "https://oauth2.googleapis.com/token"
+        );
 
-        // Validate idToken and get user info
         Map<String, String> userInfo = getGoogleUserInfo(googleTokens.get("access_token"));
 
         String googleId = userInfo.get("sub");
         String email = userInfo.get("email");
         String name = userInfo.get("name");
 
-        // Validate email domain
-        if (allowedEmailDomain != null && !allowedEmailDomain.isEmpty()) {
-            String emailDomain = email.substring(email.lastIndexOf('@') + 1);
-            if (!allowedEmailDomain.equalsIgnoreCase(emailDomain)) {
-                throw new AuthException("AUTH_EMAIL_DOMAIN_NOT_ALLOWED", "Email must be from " + allowedEmailDomain + " domain", 403);
-            }
-        }
+        validateEmailDomain(email);
 
-        // Find or create user
         User user = findOrCreateOAuthUser(email, name, googleId, null);
-
         return createTokenResponse(user, userAgent, ip);
     }
 
@@ -118,86 +118,84 @@ public class OAuthService {
 
     @Transactional
     public TokenResponse handleMicrosoftCallback(OAuthCallbackRequest request, String userAgent, String ip) {
-        // Validate state
         OAuthStateService.StateData stateData = oAuthStateService.validateAndConsumeState(request.state());
         if (stateData == null) {
             throw new AuthException("AUTH_OAUTH_STATE_INVALID", "Invalid or expired OAuth state", 400);
         }
 
-        // Exchange code for tokens
-        Map<String, String> microsoftTokens = exchangeMicrosoftCode(request.code(), request.redirectUri());
+        Map<String, String> microsoftTokens = exchangeCode(
+            request.code(),
+            request.redirectUri(),
+            microsoftClientId,
+            microsoftClientSecret,
+            microsoftRedirectUri,
+            String.format("https://login.microsoftonline.com/%s/oauth2/v2.0/token", microsoftTenant)
+        );
 
-        // Get user info
         Map<String, String> userInfo = getMicrosoftUserInfo(microsoftTokens.get("access_token"));
 
         String microsoftId = userInfo.get("oid");
         String email = userInfo.get("preferred_username");
         String name = userInfo.get("name");
 
-        // Validate email domain
-        if (allowedEmailDomain != null && !allowedEmailDomain.isEmpty()) {
-            String emailDomain = email.substring(email.lastIndexOf('@') + 1);
-            if (!allowedEmailDomain.equalsIgnoreCase(emailDomain)) {
-                throw new AuthException("AUTH_EMAIL_DOMAIN_NOT_ALLOWED", "Email must be from " + allowedEmailDomain + " domain", 403);
-            }
-        }
+        validateEmailDomain(email);
 
-        // Find or create user
         User user = findOrCreateOAuthUser(email, name, null, microsoftId);
-
         return createTokenResponse(user, userAgent, ip);
     }
 
-    private Map<String, String> exchangeGoogleCode(String code, String redirectUri) {
-        RestTemplate restTemplate = new RestTemplate();
-
+    private Map<String, String> exchangeCode(
+            String code,
+            String redirectUri,
+            String clientId,
+            String clientSecret,
+            String defaultRedirectUri,
+            String tokenUrl) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("code", code);
-        body.add("client_id", googleClientId);
-        body.add("client_secret", googleClientSecret);
-        body.add("redirect_uri", redirectUri != null ? redirectUri : googleRedirectUri);
+        body.add("client_id", clientId);
+        body.add("client_secret", clientSecret);
+        body.add("redirect_uri", redirectUri != null ? redirectUri : defaultRedirectUri);
         body.add("grant_type", "authorization_code");
 
         HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
 
         try {
-            ResponseEntity<Map> response = restTemplate.postForEntity(
-                "https://oauth2.googleapis.com/token",
+            ResponseEntity<Map<String, Object>> response = restTemplate.postForEntity(
+                tokenUrl,
                 entity,
-                Map.class
+                (Class<Map<String, Object>>) (Class<?>) Map.class
             );
 
             Map<String, Object> responseBody = response.getBody();
             if (responseBody == null || responseBody.containsKey("error")) {
-                throw new AuthException("AUTH_OAUTH_EXCHANGE_FAILED", "Failed to exchange code with Google", 502);
+                throw new AuthException("AUTH_OAUTH_EXCHANGE_FAILED", "Failed to exchange code with OAuth provider", 502);
             }
 
             return Map.of(
-                "access_token", (String) responseBody.get("access_token"),
-                "id_token", (String) responseBody.get("id_token")
+                "access_token", String.valueOf(responseBody.get("access_token"))
             );
-        } catch (Exception e) {
-            throw new AuthException("AUTH_OAUTH_EXCHANGE_FAILED", "Failed to exchange code with Google: " + e.getMessage(), 502);
+        } catch (HttpClientErrorException e) {
+            throw new AuthException("AUTH_OAUTH_EXCHANGE_FAILED",
+                "Failed to exchange code with OAuth provider: " + e.getStatusCode(), 502);
         }
     }
 
     private Map<String, String> getGoogleUserInfo(String accessToken) {
-        RestTemplate restTemplate = new RestTemplate();
-
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
 
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 "https://www.googleapis.com/oauth2/v2/userinfo",
                 org.springframework.http.HttpMethod.GET,
                 entity,
-                Map.class
+                (Class<Map<String, Object>>) (Class<?>) Map.class
             );
 
             Map<String, Object> body = response.getBody();
@@ -206,64 +204,28 @@ public class OAuthService {
             }
 
             return Map.of(
-                "sub", (String) body.get("id"),
-                "email", (String) body.get("email"),
-                "name", (String) body.get("name")
+                "sub", String.valueOf(body.get("id")),
+                "email", String.valueOf(body.get("email")),
+                "name", String.valueOf(body.get("name"))
             );
-        } catch (Exception e) {
-            throw new AuthException("AUTH_OAUTH_EXCHANGE_FAILED", "Failed to get user info from Google: " + e.getMessage(), 502);
-        }
-    }
-
-    private Map<String, String> exchangeMicrosoftCode(String code, String redirectUri) {
-        RestTemplate restTemplate = new RestTemplate();
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("code", code);
-        body.add("client_id", microsoftClientId);
-        body.add("client_secret", microsoftClientSecret);
-        body.add("redirect_uri", redirectUri != null ? redirectUri : microsoftRedirectUri);
-        body.add("grant_type", "authorization_code");
-
-        HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
-
-        try {
-            ResponseEntity<Map> response = restTemplate.postForEntity(
-                String.format("https://login.microsoftonline.com/%s/oauth2/v2.0/token", microsoftTenant),
-                entity,
-                Map.class
-            );
-
-            Map<String, Object> responseBody = response.getBody();
-            if (responseBody == null || responseBody.containsKey("error")) {
-                throw new AuthException("AUTH_OAUTH_EXCHANGE_FAILED", "Failed to exchange code with Microsoft", 502);
-            }
-
-            return Map.of(
-                "access_token", (String) responseBody.get("access_token")
-            );
-        } catch (Exception e) {
-            throw new AuthException("AUTH_OAUTH_EXCHANGE_FAILED", "Failed to exchange code with Microsoft: " + e.getMessage(), 502);
+        } catch (HttpClientErrorException e) {
+            throw new AuthException("AUTH_OAUTH_EXCHANGE_FAILED",
+                "Failed to get user info from Google: " + e.getStatusCode(), 502);
         }
     }
 
     private Map<String, String> getMicrosoftUserInfo(String accessToken) {
-        RestTemplate restTemplate = new RestTemplate();
-
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
 
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 "https://graph.microsoft.com/oidc/userinfo",
                 org.springframework.http.HttpMethod.GET,
                 entity,
-                Map.class
+                (Class<Map<String, Object>>) (Class<?>) Map.class
             );
 
             Map<String, Object> body = response.getBody();
@@ -272,39 +234,51 @@ public class OAuthService {
             }
 
             return Map.of(
-                "oid", (String) body.get("oid"),
-                "preferred_username", (String) body.get("preferred_username"),
-                "name", (String) body.get("name")
+                "oid", String.valueOf(body.get("oid")),
+                "preferred_username", String.valueOf(body.get("preferred_username")),
+                "name", String.valueOf(body.get("name"))
             );
-        } catch (Exception e) {
-            throw new AuthException("AUTH_OAUTH_EXCHANGE_FAILED", "Failed to get user info from Microsoft: " + e.getMessage(), 502);
+        } catch (HttpClientErrorException e) {
+            throw new AuthException("AUTH_OAUTH_EXCHANGE_FAILED",
+                "Failed to get user info from Microsoft: " + e.getStatusCode(), 502);
+        }
+    }
+
+    private void validateEmailDomain(String email) {
+        if (allowedEmailDomain != null && !allowedEmailDomain.isEmpty()) {
+            int atIndex = email.lastIndexOf('@');
+            if (atIndex == -1) {
+                throw new AuthException("AUTH_EMAIL_DOMAIN_NOT_ALLOWED", "Invalid email format", 403);
+            }
+            String emailDomain = email.substring(atIndex + 1);
+            if (!allowedEmailDomain.equalsIgnoreCase(emailDomain)) {
+                throw new AuthException("AUTH_EMAIL_DOMAIN_NOT_ALLOWED",
+                    "Email must be from " + allowedEmailDomain + " domain", 403);
+            }
         }
     }
 
     private User findOrCreateOAuthUser(String email, String name, String googleId, String microsoftId) {
-        // Try to find existing user by email
         User user = userRepository.findByEmail(email).orElse(null);
 
         if (user != null) {
-            // Link OAuth identity if not already linked
             if (googleId != null && user.getGoogleId() == null) {
                 user.setGoogleId(googleId);
-                user = userRepository.save(user);
+                return userRepository.save(user);
             } else if (microsoftId != null && user.getMicrosoftId() == null) {
                 user.setMicrosoftId(microsoftId);
-                user = userRepository.save(user);
+                return userRepository.save(user);
             }
             return user;
         }
 
-        // Create new user
         user = new User();
         user.setEmail(email);
         user.setName(name);
         user.setGoogleId(googleId);
         user.setMicrosoftId(microsoftId);
         user.setRole(Role.JOB_SEEKER);
-        user.setEmailVerified(true); // OAuth users are email verified
+        user.setEmailVerified(true);
         user.setEnabled(true);
 
         return userRepository.save(user);
