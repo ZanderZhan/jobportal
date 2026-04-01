@@ -92,6 +92,7 @@ public class OAuthService {
 
         Map<String, String> googleTokens = exchangeCode(
             request.code(),
+            stateData.codeVerifier(),
             stateRedirectUri,
             googleClientId,
             googleClientSecret,
@@ -131,6 +132,7 @@ public class OAuthService {
 
         Map<String, String> microsoftTokens = exchangeCode(
             request.code(),
+            stateData.codeVerifier(),
             request.redirectUri(),
             microsoftClientId,
             microsoftClientSecret,
@@ -152,6 +154,7 @@ public class OAuthService {
 
     private Map<String, String> exchangeCode(
             String code,
+            String codeVerifier,
             String redirectUri,
             String clientId,
             String clientSecret,
@@ -162,6 +165,7 @@ public class OAuthService {
 
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("code", code);
+        body.add("code_verifier", codeVerifier);
         body.add("client_id", clientId);
         body.add("client_secret", clientSecret);
         body.add("redirect_uri", redirectUri != null ? redirectUri : defaultRedirectUri);
