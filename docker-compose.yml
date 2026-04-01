@@ -28,6 +28,28 @@ services:
       timeout: 5s
       retries: 5
 
+  gateway:
+    build:
+      context: ./backend/gateway
+      dockerfile: Dockerfile
+    container_name: gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JOB_SERVICE_URL: http://job-service:8081
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      AUTH_JWK_SET_URI: http://auth-service:8082/.well-known/jwks.json
+    depends_on:
+      job-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   job-service:
     build:
       context: ./backend/job-service
