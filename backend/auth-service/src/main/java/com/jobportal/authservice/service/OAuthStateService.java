@@ -55,14 +55,13 @@ public class OAuthStateService {
         redisTemplate.delete(key);
 
         try {
-            String provider = extractJsonField(value, "provider");
             String codeVerifier = extractJsonField(value, "codeVerifier");
             String redirectUri = extractJsonField(value, "redirectUri");
 
             return new StateData(state, codeVerifier, null, redirectUri);
         } catch (AuthException e) {
             throw e;
-        } catch (RuntimeException e) {
+        } catch (RuntimeException _) {
             // Invalid JSON format or parsing error
             return null;
         }
@@ -80,7 +79,7 @@ public class OAuthStateService {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(codeVerifier.getBytes());
             return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
+        } catch (NoSuchAlgorithmException _) {
             throw new AuthException("AUTH_INTERNAL_ERROR", "SHA-256 algorithm not available", 500);
         }
     }
