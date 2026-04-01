@@ -33,9 +33,13 @@ class RouteConfigTest {
         var routes = routeLocator.getRoutes().collectList().block();
 
         assertThat(routes).isNotNull();
-        // Verify at least one route for /api/jobs/** exists
+        // Verify at least one job-service route is configured for path /api/jobs/**
         boolean hasJobsApiRoute = routes.stream()
-            .anyMatch(route -> route.getId().equals("job-service"));
+            .anyMatch(route ->
+                "job-service".equals(route.getId())
+                    && route.getPredicate() != null
+                    && route.getPredicate().toString().contains("/api/jobs/**")
+            );
         assertThat(hasJobsApiRoute).isTrue();
     }
 }
