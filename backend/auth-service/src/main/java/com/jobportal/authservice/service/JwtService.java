@@ -39,25 +39,28 @@ public class JwtService {
 
     @PostConstruct
     public void init() {
-        if (privateKeyPem != null && !privateKeyPem.isEmpty()) {
+        String privateKeyContent = privateKeyPem != null
+            ? privateKeyPem.replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replaceAll("\\s", "")
+            : "";
+        String publicKeyContent = publicKeyPem != null
+            ? publicKeyPem.replace("-----BEGIN PUBLIC KEY-----", "")
+                .replace("-----END PUBLIC KEY-----", "")
+                .replaceAll("\\s", "")
+            : "";
+
+        if (!privateKeyContent.isEmpty() && !publicKeyContent.isEmpty()) {
             try {
-                String privateKeyContent = privateKeyPem
-                    .replace("-----BEGIN PRIVATE KEY-----", "")
-                    .replace("-----END PRIVATE KEY-----", "")
-                    .replaceAll("\\s", "");
                 byte[] decoded = Base64.getDecoder().decode(privateKeyContent);
                 PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(decoded);
                 KeyFactory keyFactory = KeyFactory.getInstance("RSA");
                 privateKey = keyFactory.generatePrivate(keySpec);
 
-                String publicKeyContent = publicKeyPem
-                    .replace("-----BEGIN PUBLIC KEY-----", "")
-                    .replace("-----END PUBLIC KEY-----", "")
-                    .replaceAll("\\s", "");
                 byte[] publicDecoded = Base64.getDecoder().decode(publicKeyContent);
                 X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(publicDecoded);
                 publicKey = keyFactory.generatePublic(publicKeySpec);
-            } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+            } catch (NoSuchAlgorithmException | InvalidKeySpecException | IllegalArgumentException e) {
                 Logger logger = LoggerFactory.getLogger(JwtService.class);
                 logger.warn("Failed to load JWT keys: {}", e.getMessage());
                 privateKey = null;
