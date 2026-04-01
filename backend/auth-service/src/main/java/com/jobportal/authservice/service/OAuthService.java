@@ -84,9 +84,15 @@ public class OAuthService {
             throw new AuthException("AUTH_OAUTH_STATE_INVALID", "Invalid or expired OAuth state", 400);
         }
 
+        // Use the redirect URI bound to the OAuth state and reject mismatches
+        String stateRedirectUri = stateData.redirectUri();
+        if (request.redirectUri() != null && !request.redirectUri().equals(stateRedirectUri)) {
+            throw new AuthException("AUTH_OAUTH_REDIRECT_URI_MISMATCH", "Invalid redirect URI for OAuth state", 400);
+        }
+
         Map<String, String> googleTokens = exchangeCode(
             request.code(),
-            request.redirectUri(),
+            stateRedirectUri,
             googleClientId,
             googleClientSecret,
             googleRedirectUri,
