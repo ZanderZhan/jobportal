@@ -33,10 +33,9 @@ public class SecurityConfig {
                 .pathMatchers("/error").permitAll()
                 // Auth endpoints are public (token generation)
                 .pathMatchers("/api/auth/**").permitAll()
-                // All other requests require authentication
-                .anyExchange().authenticated()
+                // All other requests pass through to backend services for auth
+                .anyExchange().permitAll()
             )
-            .oauth2ResourceServer(ServerHttpSecurity.OAuth2ResourceServerSpec::jwt)
             .build();
     }
 
