@@ -17,6 +17,8 @@ java {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.cloud:spring-cloud-dependencies:2024.0.0")
+        mavenBom("io.github.resilience4j:resilience4j-bom:2.2.0")
+        mavenBom("org.testcontainers:testcontainers-bom:1.20.6")
     }
 }
 
@@ -25,20 +27,20 @@ repositories {
 }
 
 dependencies {
-    // Spring Cloud Gateway (includes webflux)
+    // Spring Cloud Gateway
     implementation("org.springframework.cloud:spring-cloud-starter-gateway")
 
-    // OAuth2 Resource Server for WebFlux (JWT + OIDC)
+    // OAuth2 Resource Server
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
 
-    // Actuator + Micrometer (metrics, health)
+    // Actuator + Micrometer
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("io.micrometer:micrometer-registry-prometheus")
 
-    // Resilience4j (Circuit Breaker, Retry, Rate Limiting)
+    // Resilience4j
     implementation("org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j")
-    implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
-    implementation("io.github.resilience4j:resilience4j-ratelimiter:2.2.0")
+    implementation("io.github.resilience4j:resilience4j-spring-boot3")
+    implementation("io.github.resilience4j:resilience4j-ratelimiter")
 
     // OpenTelemetry Tracing
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
@@ -51,9 +53,9 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.cloud:spring-cloud-starter-gateway")
     testImplementation("org.springframework.security:spring-security-test")
-    testImplementation("io.rest-assured:rest-assured:5.4.0")
-    testImplementation("org.testcontainers:testcontainers:1.20.6")
-    testImplementation("org.testcontainers:junit-jupiter:1.20.6")
+    testImplementation("io.rest-assured:rest-assured")
+    testImplementation("org.testcontainers:testcontainers")
+    testImplementation("org.testcontainers:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
