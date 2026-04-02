@@ -61,9 +61,9 @@ export function JobFormPage() {
         company: job.company,
         location: job.location || '',
         employmentType: job.employmentType || 'FULL_TIME',
-        salaryMin: job.salaryMin || undefined,
-        salaryMax: job.salaryMax || undefined,
-        salaryCurrency: job.salaryCurrency || 'USD',
+        salaryMin: job.salaryMin ?? undefined,
+        salaryMax: job.salaryMax ?? undefined,
+        salaryCurrency: job.salaryCurrency ?? 'USD',
         requirements: job.requirements || [],
         status: job.status,
       });
