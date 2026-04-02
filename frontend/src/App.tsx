@@ -5,6 +5,8 @@ import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { CallbackPage } from './pages/auth/CallbackPage';
 import { DashboardPage } from './pages/DashboardPage';
+import JobsPage from './pages/job/JobsPage';
+import JobDetailPage from './pages/job/JobDetailPage';
 
 function App() {
   return (
@@ -22,6 +24,8 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/jobs" element={<JobsPage />} />
+          <Route path="/jobs/:id" element={<JobDetailPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
