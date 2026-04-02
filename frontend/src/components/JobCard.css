@@ -1,12 +1,13 @@
 .job-card {
   display: block;
-  background: var(--white);
+  background: #ffffff;
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
   text-decoration: none;
   color: inherit;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .job-card:hover {
