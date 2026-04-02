@@ -75,6 +75,33 @@ export async function getJobById(id: number): Promise<Job> {
   return response.data;
 }
 
+export interface JobRequest {
+  title: string;
+  description: string;
+  company: string;
+  location?: string;
+  employmentType?: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryCurrency?: string;
+  requirements?: string[];
+  status?: 'DRAFT' | 'ACTIVE' | 'CLOSED';
+}
+
+export async function createJob(job: JobRequest): Promise<Job> {
+  const response = await api.post(JOB_API_PATH, job);
+  return response.data;
+}
+
+export async function updateJob(id: number, job: JobRequest): Promise<Job> {
+  const response = await api.put(`${JOB_API_PATH}/${id}`, job);
+  return response.data;
+}
+
+export async function deleteJob(id: number): Promise<void> {
+  await api.delete(`${JOB_API_PATH}/${id}`);
+}
+
 export function formatSalary(min: number | null, max: number | null, currency: string | null): string {
   if (!min && !max) return 'Salary not specified';
   
