@@ -39,7 +39,7 @@ export interface PagedResponse<T> {
   last: boolean;
 }
 
-const JOB_SERVICE_URL = 'http://localhost:8081';
+const JOB_API_PATH = '/api/jobs';
 
 export async function getJobs(params: JobSearchParams = {}): Promise<PagedResponse<Job>> {
   const searchParams = new URLSearchParams();
@@ -48,7 +48,7 @@ export async function getJobs(params: JobSearchParams = {}): Promise<PagedRespon
   if (params.size !== undefined) searchParams.set('size', params.size.toString());
   if (params.sort) searchParams.set('sort', params.sort);
   
-  const response = await api.get(`${JOB_SERVICE_URL}/jobs?${searchParams.toString()}`);
+  const response = await api.get(`${JOB_API_PATH}?${searchParams.toString()}`);
   return response.data;
 }
 
@@ -66,12 +66,12 @@ export async function searchJobs(params: JobSearchParams = {}): Promise<PagedRes
   if (params.size !== undefined) searchParams.set('size', params.size.toString());
   if (params.sort) searchParams.set('sort', params.sort);
   
-  const response = await api.get(`${JOB_SERVICE_URL}/jobs/search?${searchParams.toString()}`);
+  const response = await api.get(`${JOB_API_PATH}/search?${searchParams.toString()}`);
   return response.data;
 }
 
 export async function getJobById(id: number): Promise<Job> {
-  const response = await api.get(`${JOB_SERVICE_URL}/jobs/${id}`);
+  const response = await api.get(`${JOB_API_PATH}/${id}`);
   return response.data;
 }
 

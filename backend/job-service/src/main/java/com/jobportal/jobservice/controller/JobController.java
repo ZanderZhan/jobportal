@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 
 @RestController
-@RequestMapping("/jobs")
+@RequestMapping("/api/jobs")
 @Tag(name = "Jobs", description = "Job management APIs")
 public class JobController {
 
