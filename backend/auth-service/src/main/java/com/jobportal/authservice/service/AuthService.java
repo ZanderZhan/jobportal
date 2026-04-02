@@ -58,12 +58,26 @@ public class AuthService {
             throw new AuthException("AUTH_WEAK_PASSWORD", "Password must be at least 8 characters with at least one letter and one number", 400);
         }
 
+        // Determine role (default to JOB_SEEKER if not specified or invalid)
+        Role role = Role.JOB_SEEKER;
+        if (request.role() != null && !request.role().isBlank()) {
+            try {
+                role = Role.valueOf(request.role().toUpperCase());
+                // Prevent self-registration as ADMIN
+                if (role == Role.ADMIN) {
+                    role = Role.JOB_SEEKER;
+                }
+            } catch (IllegalArgumentException e) {
+                // Invalid role, use default
+            }
+        }
+
         // Create user
         User user = new User();
         user.setEmail(request.email());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setName(request.name());
-        user.setRole(Role.JOB_SEEKER);
+        user.setRole(role);
         user.setEmailVerified(false);
 
         User savedUser = userRepository.save(user);

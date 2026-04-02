@@ -17,5 +17,7 @@ public record RegisterRequest(
 
     @NotBlank(message = "Name is required")
     @Size(max = 255, message = "Name must be less than 255 characters")
-    String name
+    String name,
+
+    String role
 ) {}
