@@ -18,8 +18,8 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# Create non-root user
-RUN addgroup -S gateway && adduser -S gateway -G gateway
+# Create non-root user and install curl for healthcheck
+RUN apk add --no-cache curl && addgroup -S gateway && adduser -S gateway -G gateway
 
 # Copy built artifact
 COPY --from=builder /app/build/libs/*.jar app.jar
