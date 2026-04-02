@@ -99,7 +99,7 @@ export function DashboardPage() {
           <div className="animate-fade-up-3 dashboard-actions-section">
             <h2 className="dashboard-section-title">Quick actions</h2>
             <div className="dashboard-actions-grid">
-              <button className="solid-card dashboard-action-card">
+              <button className="solid-card dashboard-action-card" onClick={() => navigate('/jobs')}>
                 <div className="dashboard-action-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                     <circle cx="11" cy="11" r="8" />

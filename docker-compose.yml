@@ -97,8 +97,10 @@ services:
       MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
       MICROSOFT_REDIRECT_URI: ${BACKEND_URL:-http://localhost:8082}/api/auth/microsoft/callback
       ALLOWED_EMAIL_DOMAIN: ${ALLOWED_EMAIL_DOMAIN:-}
-      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
-      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      JWT_PRIVATE_KEY_FILE: /app/keys/jwt-private-key.pem
+      JWT_PUBLIC_KEY_FILE: /app/keys/jwt-public-key.pem
+    volumes:
+      - ~/.jwt/keys:/app/keys:ro
     depends_on:
       postgres:
         condition: service_healthy

@@ -26,9 +26,9 @@ public interface JobRepository extends JpaRepository<Job, Long>, JpaSpecificatio
     Page<Job> findByEmploymentType(EmploymentType employmentType, Pageable pageable);
 
     @Query("SELECT j FROM Job j WHERE " +
-           "(:title IS NULL OR LOWER(j.title) LIKE LOWER(CONCAT('%', :title, '%'))) AND " +
-           "(:company IS NULL OR LOWER(j.company) LIKE LOWER(CONCAT('%', :company, '%'))) AND " +
-           "(:location IS NULL OR LOWER(j.location) LIKE LOWER(CONCAT('%', :location, '%'))) AND " +
+           "(:title IS NULL OR LOWER(CAST(j.title AS string)) LIKE LOWER(CONCAT('%', CAST(:title AS string), '%'))) AND " +
+           "(:company IS NULL OR LOWER(CAST(j.company AS string)) LIKE LOWER(CONCAT('%', CAST(:company AS string), '%'))) AND " +
+           "(:location IS NULL OR LOWER(CAST(j.location AS string)) LIKE LOWER(CONCAT('%', CAST(:location AS string), '%'))) AND " +
            "(:employmentType IS NULL OR j.employmentType = :employmentType) AND " +
            "(:salaryMin IS NULL OR j.salaryMin >= :salaryMin) AND " +
            "(:salaryMax IS NULL OR j.salaryMax <= :salaryMax) AND " +
