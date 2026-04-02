@@ -1,2 +1,42 @@
 .DS_Store
 .vscode/
+
+# Worktrees (isolated workspaces)
+.worktrees/
+
+# Local documentation (not for version control)
+docs/superpowers/specs/
+
+# Claude Code memory
+.claude/
+
+# Gradle
+.gradle/
+**/build/
+**/.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# IDE (JetBrains)
+*.log
+
+# OS
+Thumbs.db
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+
+# Local specs
+openspec/
+
+# JWT Keys (never commit)
+backend/auth-service/jwt-private.pem
+backend/auth-service/jwt-public.pem
