@@ -14,6 +14,7 @@ public class JobSearchCriteria {
     private BigDecimal salaryMin;
     private BigDecimal salaryMax;
     private JobStatus status;
+    private String employerId;
 
     // Getters and Setters
     public String getTitle() {
@@ -70,5 +71,13 @@ public class JobSearchCriteria {
 
     public void setStatus(JobStatus status) {
         this.status = status;
+    }
+
+    public String getEmployerId() {
+        return employerId;
+    }
+
+    public void setEmployerId(String employerId) {
+        this.employerId = employerId;
     }
 }

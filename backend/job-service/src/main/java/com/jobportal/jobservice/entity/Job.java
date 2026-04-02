@@ -42,6 +42,9 @@ public class Job {
     @Column(name = "requirement")
     private List<String> requirements;
 
+    @Column(name = "employer_id")
+    private String employerId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private JobStatus status = JobStatus.DRAFT;
@@ -150,6 +153,14 @@ public class Job {
 
     public void setRequirements(List<String> requirements) {
         this.requirements = requirements;
+    }
+
+    public String getEmployerId() {
+        return employerId;
+    }
+
+    public void setEmployerId(String employerId) {
+        this.employerId = employerId;
     }
 
     public JobStatus getStatus() {

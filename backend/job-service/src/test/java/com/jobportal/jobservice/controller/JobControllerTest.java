@@ -79,7 +79,7 @@ class JobControllerTest {
 
     @Test
     void createJob_ValidRequest_ShouldReturnCreated() throws Exception {
-        when(jobService.createJob(any(JobRequest.class))).thenReturn(testJobResponse);
+        when(jobService.createJob(any(JobRequest.class), any())).thenReturn(testJobResponse);
 
         mockMvc.perform(post("/jobs")
                 .contentType(MediaType.APPLICATION_JSON)

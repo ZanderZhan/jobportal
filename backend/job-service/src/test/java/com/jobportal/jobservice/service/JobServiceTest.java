@@ -75,7 +75,7 @@ class JobServiceTest {
     void createJob_ShouldReturnCreatedJob() {
         when(jobRepository.save(any(Job.class))).thenReturn(testJob);
 
-        JobResponse response = jobService.createJob(testRequest);
+        JobResponse response = jobService.createJob(testRequest, "employer-123");
 
         assertNotNull(response);
         assertEquals(testJob.getId(), response.getId());
@@ -164,7 +164,7 @@ class JobServiceTest {
         criteria.setLocation("San Francisco");
 
         when(jobRepository.searchJobs(
-                any(), any(), any(), any(), any(), any(), any(), any()
+                any(), any(), any(), any(), any(), any(), any(), any(), any()
         )).thenReturn(jobPage);
 
         Page<JobResponse> response = jobService.searchJobs(criteria, pageable);

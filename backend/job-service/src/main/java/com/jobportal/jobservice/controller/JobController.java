@@ -39,8 +39,10 @@ public class JobController {
             @ApiResponse(responseCode = "201", description = "Job created successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid input")
     })
-    public ResponseEntity<JobResponse> createJob(@Valid @RequestBody JobRequest request) {
-        JobResponse response = jobService.createJob(request);
+    public ResponseEntity<JobResponse> createJob(
+            @Valid @RequestBody JobRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String employerId) {
+        JobResponse response = jobService.createJob(request, employerId);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
@@ -102,6 +104,7 @@ public class JobController {
             @Parameter(description = "Minimum salary") @RequestParam(required = false) BigDecimal salaryMin,
             @Parameter(description = "Maximum salary") @RequestParam(required = false) BigDecimal salaryMax,
             @Parameter(description = "Job status") @RequestParam(required = false) JobStatus status,
+            @Parameter(description = "Employer / owner ID") @RequestParam(required = false) String employerId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         JobSearchCriteria criteria = new JobSearchCriteria();
@@ -112,6 +115,7 @@ public class JobController {
         criteria.setSalaryMin(salaryMin);
         criteria.setSalaryMax(salaryMax);
         criteria.setStatus(status);
+        criteria.setEmployerId(employerId);
 
         Page<JobResponse> results = jobService.searchJobs(criteria, pageable);
         return ResponseEntity.ok(results);

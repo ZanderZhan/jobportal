@@ -22,8 +22,9 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
-    public JobResponse createJob(JobRequest request) {
+    public JobResponse createJob(JobRequest request, String employerId) {
         Job job = mapRequestToEntity(request, new Job());
+        job.setEmployerId(employerId);
         Job savedJob = jobRepository.save(job);
         return JobResponse.fromEntity(savedJob);
     }
@@ -72,6 +73,7 @@ public class JobServiceImpl implements JobService {
                 criteria.getSalaryMin(),
                 criteria.getSalaryMax(),
                 criteria.getStatus(),
+                criteria.getEmployerId(),
                 pageable
         ).map(JobResponse::fromEntity);
     }

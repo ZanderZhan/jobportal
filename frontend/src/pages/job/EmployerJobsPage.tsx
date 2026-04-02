@@ -34,6 +34,7 @@ export function EmployerJobsPage() {
       setError(null);
       const response = await searchJobs({
         status: statusFilter || undefined,
+        employerId: user!.id,
         page,
         size: 10,
         sort: 'createdAt,desc',

@@ -8,7 +8,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface JobService {
 
-    JobResponse createJob(JobRequest request);
+    JobResponse createJob(JobRequest request, String employerId);
 
     JobResponse getJobById(Long id);
 

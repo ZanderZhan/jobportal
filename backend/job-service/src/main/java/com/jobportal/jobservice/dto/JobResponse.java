@@ -11,6 +11,7 @@ import java.util.List;
 public class JobResponse {
 
     private Long id;
+    private String employerId;
     private String title;
     private String description;
     private String company;
@@ -27,6 +28,7 @@ public class JobResponse {
     public static JobResponse fromEntity(Job job) {
         JobResponse response = new JobResponse();
         response.setId(job.getId());
+        response.setEmployerId(job.getEmployerId());
         response.setTitle(job.getTitle());
         response.setDescription(job.getDescription());
         response.setCompany(job.getCompany());
@@ -49,6 +51,14 @@ public class JobResponse {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getEmployerId() {
+        return employerId;
+    }
+
+    public void setEmployerId(String employerId) {
+        this.employerId = employerId;
     }
 
     public String getTitle() {
