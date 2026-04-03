@@ -5,7 +5,6 @@ import com.jobportal.authservice.dto.TokenResponse;
 import com.jobportal.authservice.dto.UserResponse;
 import com.jobportal.authservice.entity.Role;
 import com.jobportal.authservice.entity.User;
-import com.jobportal.authservice.entity.UserType;
 import com.jobportal.authservice.exception.AuthException;
 import com.jobportal.authservice.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -287,22 +286,21 @@ public class OAuthService {
         user.setName(name);
         user.setGoogleId(googleId);
         user.setMicrosoftId(microsoftId);
-        user.setRole(Role.JOB_SEEKER);
-        user.setUserType(classifyUserByEmail(email));
+        user.setRole(classifyUserByEmail(email));
         user.setEmailVerified(true);
         user.setEnabled(true);
 
         return userRepository.save(user);
     }
 
-    private UserType classifyUserByEmail(String email) {
+    private Role classifyUserByEmail(String email) {
         int atIndex = email.lastIndexOf('@');
-        if (atIndex == -1) return UserType.HIRING;
+        if (atIndex == -1) return Role.HIRING;
         String domain = email.substring(atIndex + 1).toLowerCase();
         if (studentEmailDomain.equalsIgnoreCase(domain)) {
-            return UserType.STUDENT;
+            return Role.STUDENT;
         }
-        return UserType.HIRING;
+        return Role.HIRING;
     }
 
     private TokenResponse createTokenResponse(User user, String userAgent, String ip) {

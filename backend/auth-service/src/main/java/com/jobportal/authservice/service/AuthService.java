@@ -3,7 +3,6 @@ package com.jobportal.authservice.service;
 import com.jobportal.authservice.dto.*;
 import com.jobportal.authservice.entity.Role;
 import com.jobportal.authservice.entity.User;
-import com.jobportal.authservice.entity.UserType;
 import com.jobportal.authservice.exception.AuthException;
 import com.jobportal.authservice.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -52,15 +51,14 @@ public class AuthService {
         }
 
         // Classify user by email domain
-        UserType userType = classifyUserByEmail(request.email());
+        Role role = classifyUserByEmail(request.email());
 
         // Create user
         User user = new User();
         user.setEmail(request.email());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setName(request.name());
-        user.setRole(Role.JOB_SEEKER);
-        user.setUserType(userType);
+        user.setRole(role);
         user.setEmailVerified(false);
 
         User savedUser = userRepository.save(user);
@@ -144,11 +142,11 @@ public class AuthService {
         return email.substring(atIndex + 1);
     }
 
-    private UserType classifyUserByEmail(String email) {
+    private Role classifyUserByEmail(String email) {
         String domain = extractEmailDomain(email).toLowerCase();
         if (studentEmailDomain.equalsIgnoreCase(domain)) {
-            return UserType.STUDENT;
+            return Role.STUDENT;
         }
-        return UserType.HIRING;
+        return Role.HIRING;
     }
 }
