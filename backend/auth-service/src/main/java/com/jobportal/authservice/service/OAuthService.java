@@ -310,7 +310,7 @@ public class OAuthService {
         return new TokenResponse(
             accessToken,
             refreshToken,
-            jwtService.getAccessTokenExpiry(),
+            jwtService.getAccessTokenExpirySeconds(),
             UserResponse.fromEntity(user)
         );
     }

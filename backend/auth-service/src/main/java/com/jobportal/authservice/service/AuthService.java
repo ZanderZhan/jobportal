@@ -20,6 +20,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Value("${student-email-domain:studentmail.ul.ie}")
     private String studentEmailDomain;
@@ -31,11 +32,13 @@ public class AuthService {
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            RefreshTokenService refreshTokenService) {
+            RefreshTokenService refreshTokenService,
+            TokenBlacklistService tokenBlacklistService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     @Transactional
@@ -108,9 +111,13 @@ public class AuthService {
     }
 
     @Transactional
-    public void logout(String refreshToken) {
+    public void logout(String refreshToken, String accessToken) {
         if (refreshToken != null && !refreshToken.isEmpty()) {
             refreshTokenService.revokeRefreshToken(refreshToken);
+        }
+        if (accessToken != null && !accessToken.isEmpty()) {
+            String jti = jwtService.getJtiFromToken(accessToken);
+            tokenBlacklistService.blacklistToken(jti);
         }
     }
 
@@ -131,7 +138,7 @@ public class AuthService {
         return new TokenResponse(
             accessToken,
             refreshToken,
-            jwtService.getAccessTokenExpiry(),
+            jwtService.getAccessTokenExpirySeconds(),
             UserResponse.fromEntity(user)
         );
     }
