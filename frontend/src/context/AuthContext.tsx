@@ -83,10 +83,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const handleOAuthCallback = async (provider: 'google' | 'microsoft', code: string, state: string) => {
-    const { data } = await api.post(`/api/auth/${provider}/callback`, {
-      code,
-      state,
-      redirectUri: `${window.location.origin}/auth/callback`,
+    const { data } = await api.get(`/api/auth/${provider}/callback`, {
+      params: { code, state },
     });
     setAccessToken(data.accessToken);
     sessionStorage.setItem('access_token', data.accessToken);

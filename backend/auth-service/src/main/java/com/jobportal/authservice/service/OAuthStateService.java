@@ -59,6 +59,10 @@ public class OAuthStateService {
             String codeVerifier = extractJsonField(value, "codeVerifier");
             String redirectUri = extractJsonField(value, "redirectUri");
 
+            if (codeVerifier.isEmpty()) {
+                return null;
+            }
+
             return new StateData(state, codeVerifier, null, redirectUri);
         } catch (AuthException e) {
             throw e;
