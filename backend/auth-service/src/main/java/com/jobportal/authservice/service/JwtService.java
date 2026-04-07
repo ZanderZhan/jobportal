@@ -45,6 +45,8 @@ public class JwtService {
     private PublicKey publicKey;
     private static final String KEY_ID = "1";
 
+    public static final String CLAIM_JTI = "jti";
+
     @PostConstruct
     public void init() {
         String privateKeyContent = resolveKeyContent(privateKeyPem, privateKeyFile, "private");
@@ -96,12 +98,14 @@ public class JwtService {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + accessTokenExpirySeconds * 1000);
 
+        String jti = UUID.randomUUID().toString();
+
         return Jwts.builder()
             .subject(user.getId().toString())
             .claim("email", user.getEmail())
             .claim("name", user.getName())
             .claim("role", user.getRole().name())
-            .claim("userType", user.getUserType().name())
+            .claim(CLAIM_JTI, jti)
             .issuedAt(now)
             .expiration(expiry)
             .header().add("kid", KEY_ID).and()
@@ -122,7 +126,12 @@ public class JwtService {
         return UUID.fromString(claims.getSubject());
     }
 
-    public long getAccessTokenExpiry() {
+    public String getJtiFromToken(String token) {
+        Claims claims = validateAndGetClaims(token);
+        return claims.get(CLAIM_JTI, String.class);
+    }
+
+    public long getAccessTokenExpirySeconds() {
         return accessTokenExpirySeconds;
     }
 

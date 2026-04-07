@@ -49,11 +49,18 @@ public class AuthController {
     @PostMapping("/api/auth/logout")
     public ResponseEntity<Void> logout(
             @CookieValue(name = "refresh_token", required = false) String refreshToken,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
             HttpServletRequest httpRequest) {
         if (refreshToken == null || refreshToken.isEmpty()) {
             refreshToken = httpRequest.getHeader("X-Refresh-Token");
         }
-        authService.logout(refreshToken);
+
+        String accessToken = null;
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            accessToken = authHeader.substring(7);
+        }
+
+        authService.logout(refreshToken, accessToken);
         return ResponseEntity.ok().build();
     }
 

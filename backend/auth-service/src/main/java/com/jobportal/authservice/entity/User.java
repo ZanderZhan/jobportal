@@ -30,11 +30,7 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private Role role = Role.JOB_SEEKER;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "user_type", nullable = false, length = 20)
-    private UserType userType = UserType.HIRING;
+    private Role role = Role.HIRING;
 
     @Column(name = "google_id", unique = true, length = 255)
     private String googleId;

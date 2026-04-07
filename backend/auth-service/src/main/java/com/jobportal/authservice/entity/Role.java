@@ -1,7 +1,7 @@
 package com.jobportal.authservice.entity;
 
 public enum Role {
-    JOB_SEEKER,
-    EMPLOYER,
+    STUDENT,   // @studentmail.ul.ie
+    HIRING,    // companies and all other domains
     ADMIN
 }

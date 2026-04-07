@@ -3,7 +3,6 @@ package com.jobportal.authservice.service;
 import com.jobportal.authservice.dto.*;
 import com.jobportal.authservice.entity.Role;
 import com.jobportal.authservice.entity.User;
-import com.jobportal.authservice.entity.UserType;
 import com.jobportal.authservice.exception.AuthException;
 import com.jobportal.authservice.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +20,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Value("${student-email-domain:studentmail.ul.ie}")
     private String studentEmailDomain;
@@ -32,11 +32,13 @@ public class AuthService {
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            RefreshTokenService refreshTokenService) {
+            RefreshTokenService refreshTokenService,
+            TokenBlacklistService tokenBlacklistService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     @Transactional
@@ -52,15 +54,14 @@ public class AuthService {
         }
 
         // Classify user by email domain
-        UserType userType = classifyUserByEmail(request.email());
+        Role role = classifyUserByEmail(request.email());
 
         // Create user
         User user = new User();
         user.setEmail(request.email());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setName(request.name());
-        user.setRole(Role.JOB_SEEKER);
-        user.setUserType(userType);
+        user.setRole(role);
         user.setEmailVerified(false);
 
         User savedUser = userRepository.save(user);
@@ -110,9 +111,13 @@ public class AuthService {
     }
 
     @Transactional
-    public void logout(String refreshToken) {
+    public void logout(String refreshToken, String accessToken) {
         if (refreshToken != null && !refreshToken.isEmpty()) {
             refreshTokenService.revokeRefreshToken(refreshToken);
+        }
+        if (accessToken != null && !accessToken.isEmpty()) {
+            String jti = jwtService.getJtiFromToken(accessToken);
+            tokenBlacklistService.blacklistToken(jti);
         }
     }
 
@@ -133,7 +138,7 @@ public class AuthService {
         return new TokenResponse(
             accessToken,
             refreshToken,
-            jwtService.getAccessTokenExpiry(),
+            jwtService.getAccessTokenExpirySeconds(),
             UserResponse.fromEntity(user)
         );
     }
@@ -144,11 +149,11 @@ public class AuthService {
         return email.substring(atIndex + 1);
     }
 
-    private UserType classifyUserByEmail(String email) {
+    private Role classifyUserByEmail(String email) {
         String domain = extractEmailDomain(email).toLowerCase();
         if (studentEmailDomain.equalsIgnoreCase(domain)) {
-            return UserType.STUDENT;
+            return Role.STUDENT;
         }
-        return UserType.HIRING;
+        return Role.HIRING;
     }
 }
