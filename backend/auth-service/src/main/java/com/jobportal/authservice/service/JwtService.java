@@ -101,6 +101,7 @@ public class JwtService {
             .claim("email", user.getEmail())
             .claim("name", user.getName())
             .claim("role", user.getRole().name())
+            .claim("userType", user.getUserType().name())
             .issuedAt(now)
             .expiration(expiry)
             .header().add("kid", KEY_ID).and()
