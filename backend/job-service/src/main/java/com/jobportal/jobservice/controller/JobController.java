@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.jobportal.jobservice.exception.JobNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -72,11 +73,18 @@ public class JobController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Job updated successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid input"),
+            @ApiResponse(responseCode = "403", description = "Forbidden – caller does not own this job"),
             @ApiResponse(responseCode = "404", description = "Job not found")
     })
     public ResponseEntity<JobResponse> updateJob(
             @Parameter(description = "Job ID") @PathVariable Long id,
-            @Valid @RequestBody JobRequest request) {
+            @Valid @RequestBody JobRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String callerId) {
+        JobResponse existing = jobService.getJobById(id);
+        if (existing.employerId() != null
+                && (callerId == null || !existing.employerId().equals(callerId))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         JobResponse response = jobService.updateJob(id, request);
         return ResponseEntity.ok(response);
     }
@@ -85,10 +93,17 @@ public class JobController {
     @Operation(summary = "Delete a job posting")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Job deleted successfully"),
+            @ApiResponse(responseCode = "403", description = "Forbidden – caller does not own this job"),
             @ApiResponse(responseCode = "404", description = "Job not found")
     })
     public ResponseEntity<Void> deleteJob(
-            @Parameter(description = "Job ID") @PathVariable Long id) {
+            @Parameter(description = "Job ID") @PathVariable Long id,
+            @RequestHeader(value = "X-User-Id", required = false) String callerId) {
+        JobResponse existing = jobService.getJobById(id);
+        if (existing.employerId() != null
+                && (callerId == null || !existing.employerId().equals(callerId))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         jobService.deleteJob(id);
         return ResponseEntity.noContent().build();
     }
@@ -107,15 +122,7 @@ public class JobController {
             @Parameter(description = "Employer / owner ID") @RequestParam(required = false) String employerId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        JobSearchCriteria criteria = new JobSearchCriteria();
-        criteria.setTitle(title);
-        criteria.setCompany(company);
-        criteria.setLocation(location);
-        criteria.setEmploymentType(employmentType);
-        criteria.setSalaryMin(salaryMin);
-        criteria.setSalaryMax(salaryMax);
-        criteria.setStatus(status);
-        criteria.setEmployerId(employerId);
+        JobSearchCriteria criteria = new JobSearchCriteria(title, company, location, employmentType, salaryMin, salaryMax, status, employerId);
 
         Page<JobResponse> results = jobService.searchJobs(criteria, pageable);
         return ResponseEntity.ok(results);

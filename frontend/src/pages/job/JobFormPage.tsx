@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -22,13 +22,19 @@ const JOB_STATUSES = [
   { value: 'CLOSED', label: 'Closed' },
 ];
 
+interface RequirementItem {
+  id: string;
+  text: string;
+}
+
 export function JobFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const isEditMode = !!id;
+  const requirementCounter = useRef(0);
 
-  const [formData, setFormData] = useState<JobRequest>({
+  const [formData, setFormData] = useState<Omit<JobRequest, 'requirements'>>({
     title: '',
     description: '',
     company: '',
@@ -37,9 +43,9 @@ export function JobFormPage() {
     salaryMin: undefined,
     salaryMax: undefined,
     salaryCurrency: 'USD',
-    requirements: [],
     status: 'DRAFT',
   });
+  const [requirements, setRequirements] = useState<RequirementItem[]>([]);
   const [requirementInput, setRequirementInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditMode);
@@ -64,9 +70,9 @@ export function JobFormPage() {
         salaryMin: job.salaryMin ?? undefined,
         salaryMax: job.salaryMax ?? undefined,
         salaryCurrency: job.salaryCurrency ?? 'USD',
-        requirements: job.requirements || [],
         status: job.status,
       });
+      setRequirements((job.requirements || []).map((text) => ({ id: `req-${++requirementCounter.current}`, text })));
     } catch (err) {
       setError('Failed to load job');
       console.error(err);
@@ -95,19 +101,13 @@ export function JobFormPage() {
 
   const handleAddRequirement = () => {
     if (requirementInput.trim()) {
-      setFormData((prev) => ({
-        ...prev,
-        requirements: [...(prev.requirements || []), requirementInput.trim()],
-      }));
+      setRequirements((prev) => [...prev, { id: `req-${++requirementCounter.current}`, text: requirementInput.trim() }]);
       setRequirementInput('');
     }
   };
 
-  const handleRemoveRequirement = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      requirements: prev.requirements?.filter((_, i) => i !== index),
-    }));
+  const handleRemoveRequirement = (id: string) => {
+    setRequirements((prev) => prev.filter((r) => r.id !== id));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -116,10 +116,11 @@ export function JobFormPage() {
     setIsLoading(true);
 
     try {
+      const payload: JobRequest = { ...formData, requirements: requirements.map((r) => r.text) };
       if (isEditMode && id) {
-        await updateJob(parseInt(id), formData);
+        await updateJob(parseInt(id), payload);
       } else {
-        await createJob(formData);
+        await createJob(payload);
       }
       navigate('/employer/jobs');
     } catch (err: any) {
@@ -323,14 +324,14 @@ export function JobFormPage() {
                 </button>
               </div>
 
-              {formData.requirements && formData.requirements.length > 0 && (
+              {requirements.length > 0 && (
                 <div className="requirements-list">
-                  {formData.requirements.map((req, index) => (
-                    <span key={index} className="requirement-tag">
-                      {req}
+                  {requirements.map((req) => (
+                    <span key={req.id} className="requirement-tag">
+                      {req.text}
                       <button
                         type="button"
-                        onClick={() => handleRemoveRequirement(index)}
+                        onClick={() => handleRemoveRequirement(req.id)}
                         className="remove-tag"
                       >
                         ×

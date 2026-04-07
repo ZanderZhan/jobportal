@@ -14,7 +14,7 @@ export default function JobDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const isEmployer = isAuthenticated && user?.role === 'EMPLOYER';
+  const isJobOwner = isAuthenticated && user?.role === 'EMPLOYER' && !!job && job.employerId === user.id;
 
   useEffect(() => {
     async function fetchJob() {
@@ -89,7 +89,7 @@ export default function JobDetailPage() {
           Back
         </button>
 
-        {isEmployer && (
+        {isJobOwner && (
           <div className="employer-actions">
             <Link to={`/employer/jobs/${id}/edit`} className="btn btn-secondary">
               Edit Job
