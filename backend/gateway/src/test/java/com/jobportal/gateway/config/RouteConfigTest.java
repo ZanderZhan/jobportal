@@ -42,4 +42,15 @@ class RouteConfigTest {
             );
         assertThat(hasJobsApiRoute).isTrue();
     }
+
+    @Test
+    void shouldHaveSearchServiceRoute() {
+        var routes = routeLocator.getRoutes().collectList().block();
+
+        assertThat(routes).isNotNull();
+
+        boolean hasSearchRoute = routes.stream()
+            .anyMatch(route -> route.getId().equals("search-service"));
+        assertThat(hasSearchRoute).isTrue();
+    }
 }
