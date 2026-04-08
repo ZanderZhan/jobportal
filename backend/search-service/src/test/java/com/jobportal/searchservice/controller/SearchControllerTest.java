@@ -1,5 +1,6 @@
 package com.jobportal.searchservice.controller;
 
+import com.jobportal.searchservice.dto.JobSearchFacetsResponse;
 import com.jobportal.searchservice.dto.JobSearchResult;
 import com.jobportal.searchservice.dto.PagedResponse;
 import com.jobportal.searchservice.exception.SearchServiceException;
@@ -134,5 +135,23 @@ class SearchControllerTest {
             .andExpect(jsonPath("$.code").value("SEARCH_INVALID_REQUEST"))
             .andExpect(jsonPath("$.message").value("size must be greater than or equal to 1"))
             .andExpect(jsonPath("$.timestamp").isNotEmpty());
+    }
+
+    @Test
+    void getJobSearchFacets_ShouldReturnFacetBuckets() throws Exception {
+        JobSearchFacetsResponse response = new JobSearchFacetsResponse();
+        response.setLocations(List.of(new com.jobportal.searchservice.dto.FacetValueCount("Dublin", 2)));
+        response.setCompanies(List.of(new com.jobportal.searchservice.dto.FacetValueCount("Northwind", 2)));
+        response.setEmploymentTypes(List.of(new com.jobportal.searchservice.dto.FacetValueCount("FULL_TIME", 2)));
+
+        when(searchService.getJobSearchFacets(any(), any(), any(), any(), any(), any(), any()))
+            .thenReturn(response);
+
+        mockMvc.perform(get("/api/search/jobs/facets").accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.locations[0].value").value("Dublin"))
+            .andExpect(jsonPath("$.locations[0].count").value(2))
+            .andExpect(jsonPath("$.companies[0].value").value("Northwind"))
+            .andExpect(jsonPath("$.employmentTypes[0].value").value("FULL_TIME"));
     }
 }

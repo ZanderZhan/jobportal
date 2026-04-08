@@ -1,10 +1,13 @@
 package com.jobportal.searchservice.service;
 
+import com.jobportal.searchservice.dto.FacetValueCount;
+import com.jobportal.searchservice.dto.JobSearchFacetsResponse;
 import com.jobportal.searchservice.dto.JobSearchResult;
 import com.jobportal.searchservice.dto.PagedResponse;
 import com.jobportal.searchservice.exception.SearchServiceException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -17,9 +20,19 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class SearchServiceImpl implements SearchService {
@@ -53,16 +66,70 @@ public class SearchServiceImpl implements SearchService {
     private final MeterRegistry meterRegistry;
     private final String jobServiceUrl;
     private final int maxPageSize;
+    private final int maxCandidateWindow;
+    private final long cacheTtlSeconds;
+    private final int cacheMaxEntries;
+    private final int facetSampleSize;
+    private final int facetMaxValues;
+    private final int retryMaxAttempts;
+    private final long retryBackoffMs;
+    private final int circuitFailureThreshold;
+    private final long circuitOpenSeconds;
+    private final Map<String, CacheEntry<PagedResponse<JobSearchResult>>> searchCache = new ConcurrentHashMap<>();
+    private final Map<String, CacheEntry<JobSearchFacetsResponse>> facetsCache = new ConcurrentHashMap<>();
+    private final AtomicInteger consecutiveUpstreamFailures = new AtomicInteger();
+    private volatile Instant circuitOpenedAt;
 
+    @Autowired
     public SearchServiceImpl(
             RestTemplate restTemplate,
             MeterRegistry meterRegistry,
             @Value("${services.job-service.url:http://localhost:8081}") String jobServiceUrl,
-            @Value("${search.pagination.max-size:100}") int maxPageSize) {
+            @Value("${search.pagination.max-size:100}") int maxPageSize,
+            @Value("${search.ranking.max-candidate-window:200}") int maxCandidateWindow,
+            @Value("${search.cache.ttl-seconds:30}") long cacheTtlSeconds,
+            @Value("${search.cache.max-entries:200}") int cacheMaxEntries,
+            @Value("${search.facets.sample-size:200}") int facetSampleSize,
+            @Value("${search.facets.max-values:10}") int facetMaxValues,
+            @Value("${search.resilience.retry.max-attempts:2}") int retryMaxAttempts,
+            @Value("${search.resilience.retry.backoff-ms:100}") long retryBackoffMs,
+            @Value("${search.resilience.circuit-breaker.failure-threshold:3}") int circuitFailureThreshold,
+            @Value("${search.resilience.circuit-breaker.open-seconds:30}") long circuitOpenSeconds) {
         this.restTemplate = restTemplate;
         this.meterRegistry = meterRegistry;
         this.jobServiceUrl = jobServiceUrl;
         this.maxPageSize = maxPageSize;
+        this.maxCandidateWindow = maxCandidateWindow;
+        this.cacheTtlSeconds = cacheTtlSeconds;
+        this.cacheMaxEntries = cacheMaxEntries;
+        this.facetSampleSize = facetSampleSize;
+        this.facetMaxValues = facetMaxValues;
+        this.retryMaxAttempts = retryMaxAttempts;
+        this.retryBackoffMs = retryBackoffMs;
+        this.circuitFailureThreshold = circuitFailureThreshold;
+        this.circuitOpenSeconds = circuitOpenSeconds;
+    }
+
+    SearchServiceImpl(
+            RestTemplate restTemplate,
+            MeterRegistry meterRegistry,
+            String jobServiceUrl,
+            int maxPageSize) {
+        this(
+            restTemplate,
+            meterRegistry,
+            jobServiceUrl,
+            maxPageSize,
+            200,
+            30,
+            200,
+            200,
+            10,
+            2,
+            100,
+            3,
+            30
+        );
     }
 
     @Override
@@ -82,62 +149,35 @@ public class SearchServiceImpl implements SearchService {
         String outcome = "success";
 
         try {
-            String normalizedTitle = normalizeText(title);
-            String normalizedCompany = normalizeText(company);
-            String normalizedLocation = normalizeText(location);
-            String normalizedEmploymentType = normalizeEnumValue(employmentType);
-            String normalizedStatus = normalizeEnumValue(status);
-            BigDecimal normalizedSalaryMin = normalizeSalary(salaryMin, "salaryMin");
-            BigDecimal normalizedSalaryMax = normalizeSalary(salaryMax, "salaryMax");
-            int validatedPage = validatePage(page);
-            int cappedSize = capPageSize(size);
-            String validatedSort = normalizeSort(sort);
-
-            validateEnumValue("employmentType", normalizedEmploymentType, VALID_EMPLOYMENT_TYPES);
-            validateEnumValue("status", normalizedStatus, VALID_STATUSES);
-            validateSalaryRange(normalizedSalaryMin, normalizedSalaryMax);
-
-            String effectiveStatus = normalizedStatus == null ? DEFAULT_STATUS : normalizedStatus;
-
-            URI uri = UriComponentsBuilder.fromUriString(jobServiceUrl)
-                .path("/api/jobs/search")
-                .queryParamIfPresent("title", optional(normalizedTitle))
-                .queryParamIfPresent("company", optional(normalizedCompany))
-                .queryParamIfPresent("location", optional(normalizedLocation))
-                .queryParamIfPresent("employmentType", optional(normalizedEmploymentType))
-                .queryParamIfPresent("salaryMin", optional(normalizedSalaryMin))
-                .queryParamIfPresent("salaryMax", optional(normalizedSalaryMax))
-                .queryParam("status", effectiveStatus)
-                .queryParam("page", validatedPage)
-                .queryParam("size", cappedSize)
-                .queryParam("sort", validatedSort)
-                .build()
-                .encode()
-                .toUri();
-
-            ResponseEntity<PagedResponse<JobSearchResult>> response = restTemplate.exchange(
-                uri,
-                HttpMethod.GET,
-                HttpEntity.EMPTY,
-                new ParameterizedTypeReference<>() {}
+            SearchRequest request = normalizeRequest(
+                title,
+                company,
+                location,
+                employmentType,
+                salaryMin,
+                salaryMax,
+                status,
+                page,
+                size,
+                sort
             );
 
-            if (response.getBody() == null) {
-                throw new SearchServiceException(
-                    "SEARCH_UPSTREAM_EMPTY",
-                    "Job search returned an empty response",
-                    502
-                );
+            PagedResponse<JobSearchResult> cachedResponse = getCached(searchCache, request.cacheKey(), "search");
+            if (cachedResponse != null) {
+                incrementRequestCounter("cache_hit");
+                return cachedResponse;
             }
 
+            PagedResponse<JobSearchResult> response = request.usesDefaultSort() && request.offset() < maxCandidateWindow
+                ? buildRankedResponse(request)
+                : fetchUpstreamPage(request, request.page(), request.size(), request.sort());
+
+            putCached(searchCache, request.cacheKey(), response);
             incrementRequestCounter("success");
-            return response.getBody();
+            return response;
         } catch (SearchServiceException ex) {
             outcome = metricOutcome(ex);
             incrementRequestCounter(outcome);
-            if ("upstream_error".equals(outcome)) {
-                incrementUpstreamErrorCounter(ex.getErrorCode());
-            }
             throw ex;
         } catch (RestClientException ex) {
             outcome = "upstream_error";
@@ -156,8 +196,303 @@ public class SearchServiceImpl implements SearchService {
         }
     }
 
+    @Override
+    public JobSearchFacetsResponse getJobSearchFacets(
+            String title,
+            String company,
+            String location,
+            String employmentType,
+            BigDecimal salaryMin,
+            BigDecimal salaryMax,
+            String status) {
+
+        Timer.Sample sample = Timer.start(meterRegistry);
+        String outcome = "success";
+
+        try {
+            SearchRequest request = normalizeRequest(
+                title,
+                company,
+                location,
+                employmentType,
+                salaryMin,
+                salaryMax,
+                status,
+                0,
+                Math.min(facetSampleSize, maxCandidateWindow),
+                DEFAULT_SORT
+            );
+
+            String cacheKey = request.facetsCacheKey();
+            JobSearchFacetsResponse cachedResponse = getCached(facetsCache, cacheKey, "facets");
+            if (cachedResponse != null) {
+                incrementRequestCounter("cache_hit");
+                return cachedResponse;
+            }
+
+            PagedResponse<JobSearchResult> upstreamResponse = fetchUpstreamPage(
+                request,
+                0,
+                Math.min(facetSampleSize, maxCandidateWindow),
+                DEFAULT_SORT
+            );
+            JobSearchFacetsResponse facetsResponse = buildFacetsResponse(upstreamResponse.getContent());
+            putCached(facetsCache, cacheKey, facetsResponse);
+
+            incrementRequestCounter("success");
+            return facetsResponse;
+        } catch (SearchServiceException ex) {
+            outcome = metricOutcome(ex);
+            incrementRequestCounter(outcome);
+            throw ex;
+        } finally {
+            sample.stop(Timer.builder("search.latency")
+                .description("Latency for search requests")
+                .tag("outcome", outcome)
+                .register(meterRegistry));
+        }
+    }
+
     private <T> Optional<T> optional(T value) {
         return Optional.ofNullable(value);
+    }
+
+    private SearchRequest normalizeRequest(
+            String title,
+            String company,
+            String location,
+            String employmentType,
+            BigDecimal salaryMin,
+            BigDecimal salaryMax,
+            String status,
+            int page,
+            int size,
+            String sort) {
+
+        String normalizedTitle = normalizeText(title);
+        String normalizedCompany = normalizeText(company);
+        String normalizedLocation = normalizeText(location);
+        String normalizedEmploymentType = normalizeEnumValue(employmentType);
+        String normalizedStatus = normalizeEnumValue(status);
+        BigDecimal normalizedSalaryMin = normalizeSalary(salaryMin, "salaryMin");
+        BigDecimal normalizedSalaryMax = normalizeSalary(salaryMax, "salaryMax");
+        int validatedPage = validatePage(page);
+        int cappedSize = capPageSize(size);
+        String validatedSort = normalizeSort(sort);
+
+        validateEnumValue("employmentType", normalizedEmploymentType, VALID_EMPLOYMENT_TYPES);
+        validateEnumValue("status", normalizedStatus, VALID_STATUSES);
+        validateSalaryRange(normalizedSalaryMin, normalizedSalaryMax);
+
+        return new SearchRequest(
+            normalizedTitle,
+            normalizedCompany,
+            normalizedLocation,
+            normalizedEmploymentType,
+            normalizedSalaryMin,
+            normalizedSalaryMax,
+            normalizedStatus == null ? DEFAULT_STATUS : normalizedStatus,
+            validatedPage,
+            cappedSize,
+            validatedSort
+        );
+    }
+
+    private PagedResponse<JobSearchResult> buildRankedResponse(SearchRequest request) {
+        int candidateSize = Math.max((request.page() + 1) * request.size(), request.size() * 3);
+        candidateSize = Math.max(candidateSize, 50);
+        candidateSize = Math.min(candidateSize, maxCandidateWindow);
+
+        PagedResponse<JobSearchResult> upstreamResponse = fetchUpstreamPage(request, 0, candidateSize, DEFAULT_SORT);
+        List<JobSearchResult> rankedContent = upstreamResponse.getContent().stream()
+            .sorted(rankingComparator(request))
+            .toList();
+
+        return sliceResponse(rankedContent, upstreamResponse.getTotalElements(), request.page(), request.size());
+    }
+
+    private PagedResponse<JobSearchResult> fetchUpstreamPage(SearchRequest request, int page, int size, String sort) {
+        SearchServiceException lastSearchException = null;
+        RestClientException lastRestClientException = null;
+        int attempts = Math.max(1, retryMaxAttempts);
+
+        for (int attempt = 1; attempt <= attempts; attempt++) {
+            ensureCircuitClosed();
+
+            try {
+                URI uri = buildUri(request, page, size, sort);
+                ResponseEntity<PagedResponse<JobSearchResult>> response = restTemplate.exchange(
+                    uri,
+                    HttpMethod.GET,
+                    HttpEntity.EMPTY,
+                    new ParameterizedTypeReference<>() {}
+                );
+
+                if (response.getBody() == null) {
+                    throw new SearchServiceException(
+                        "SEARCH_UPSTREAM_EMPTY",
+                        "Job search returned an empty response",
+                        502
+                    );
+                }
+
+                recordUpstreamSuccess();
+                return response.getBody();
+            } catch (SearchServiceException ex) {
+                if (!isRetryable(ex) || attempt == attempts) {
+                    recordUpstreamFailure(ex.getErrorCode());
+                    throw ex;
+                }
+                lastSearchException = ex;
+            } catch (RestClientException ex) {
+                if (attempt == attempts) {
+                    lastRestClientException = ex;
+                    break;
+                }
+                sleepBeforeRetry();
+            }
+        }
+
+        recordUpstreamFailure("SEARCH_UPSTREAM_FAILED");
+        if (lastSearchException != null) {
+            throw lastSearchException;
+        }
+        throw new SearchServiceException(
+            "SEARCH_UPSTREAM_FAILED",
+            "Failed to fetch search results from job-service",
+            502
+        );
+    }
+
+    private URI buildUri(SearchRequest request, int page, int size, String sort) {
+        return UriComponentsBuilder.fromUriString(jobServiceUrl)
+            .path("/api/jobs/search")
+            .queryParamIfPresent("title", optional(request.title()))
+            .queryParamIfPresent("company", optional(request.company()))
+            .queryParamIfPresent("location", optional(request.location()))
+            .queryParamIfPresent("employmentType", optional(request.employmentType()))
+            .queryParamIfPresent("salaryMin", optional(request.salaryMin()))
+            .queryParamIfPresent("salaryMax", optional(request.salaryMax()))
+            .queryParam("status", request.status())
+            .queryParam("page", page)
+            .queryParam("size", size)
+            .queryParam("sort", sort)
+            .build()
+            .encode()
+            .toUri();
+    }
+
+    private Comparator<JobSearchResult> rankingComparator(SearchRequest request) {
+        return Comparator
+            .comparingInt((JobSearchResult result) -> relevanceScore(result, request))
+            .reversed()
+            .thenComparing(JobSearchResult::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+            .thenComparing(JobSearchResult::getId, Comparator.nullsLast(Comparator.naturalOrder()));
+    }
+
+    private int relevanceScore(JobSearchResult result, SearchRequest request) {
+        int score = 0;
+        score += exactOrPartialScore(result.getTitle(), request.title(), 120, 80);
+        score += exactOrPartialScore(result.getCompany(), request.company(), 90, 60);
+        score += exactOrPartialScore(result.getLocation(), request.location(), 70, 40);
+
+        if (request.title() != null && containsNormalized(result.getDescription(), request.title())) {
+            score += 25;
+        }
+        if ("ACTIVE".equalsIgnoreCase(result.getStatus())) {
+            score += 25;
+        }
+        score += recencyScore(result.getCreatedAt());
+        return score;
+    }
+
+    private int exactOrPartialScore(String candidate, String query, int exactScore, int partialScore) {
+        if (query == null) {
+            return 0;
+        }
+        if (equalsNormalized(candidate, query)) {
+            return exactScore;
+        }
+        if (containsNormalized(candidate, query)) {
+            return partialScore;
+        }
+        return 0;
+    }
+
+    private boolean equalsNormalized(String left, String right) {
+        String normalizedLeft = normalizeText(left);
+        return normalizedLeft != null && normalizedLeft.equalsIgnoreCase(right);
+    }
+
+    private boolean containsNormalized(String candidate, String query) {
+        String normalizedCandidate = normalizeText(candidate);
+        return normalizedCandidate != null
+            && normalizedCandidate.toLowerCase(Locale.ROOT).contains(query.toLowerCase(Locale.ROOT));
+    }
+
+    private int recencyScore(LocalDateTime createdAt) {
+        if (createdAt == null) {
+            return 0;
+        }
+
+        long days = ChronoUnit.DAYS.between(createdAt, LocalDateTime.now());
+        if (days <= 1) {
+            return 35;
+        }
+        if (days <= 7) {
+            return 25;
+        }
+        if (days <= 30) {
+            return 15;
+        }
+        return 5;
+    }
+
+    private PagedResponse<JobSearchResult> sliceResponse(
+            List<JobSearchResult> rankedContent,
+            long totalElements,
+            int page,
+            int size) {
+        int fromIndex = Math.min(page * size, rankedContent.size());
+        int toIndex = Math.min(fromIndex + size, rankedContent.size());
+
+        PagedResponse<JobSearchResult> response = new PagedResponse<>();
+        response.setContent(rankedContent.subList(fromIndex, toIndex));
+        response.setTotalElements(totalElements);
+        response.setSize(size);
+        response.setNumber(page);
+        response.setTotalPages((int) Math.ceil((double) totalElements / size));
+        response.setFirst(page == 0);
+        response.setLast((long) (page + 1) * size >= totalElements);
+        return response;
+    }
+
+    private JobSearchFacetsResponse buildFacetsResponse(List<JobSearchResult> content) {
+        JobSearchFacetsResponse response = new JobSearchFacetsResponse();
+        response.setLocations(topFacetValues(content, JobSearchResult::getLocation));
+        response.setCompanies(topFacetValues(content, JobSearchResult::getCompany));
+        response.setEmploymentTypes(topFacetValues(content, JobSearchResult::getEmploymentType));
+        return response;
+    }
+
+    private List<FacetValueCount> topFacetValues(
+            List<JobSearchResult> content,
+            java.util.function.Function<JobSearchResult, String> extractor) {
+        Map<String, Long> counts = new LinkedHashMap<>();
+
+        for (JobSearchResult result : content) {
+            String value = normalizeText(extractor.apply(result));
+            if (value != null) {
+                counts.merge(value, 1L, Long::sum);
+            }
+        }
+
+        return counts.entrySet().stream()
+            .sorted(Map.Entry.<String, Long>comparingByValue().reversed()
+                .thenComparing(Map.Entry.comparingByKey(String.CASE_INSENSITIVE_ORDER)))
+            .limit(facetMaxValues)
+            .map(entry -> new FacetValueCount(entry.getKey(), entry.getValue()))
+            .toList();
     }
 
     private String normalizeText(String value) {
@@ -262,6 +597,9 @@ public class SearchServiceImpl implements SearchService {
     }
 
     private String metricOutcome(SearchServiceException ex) {
+        if ("SEARCH_CIRCUIT_OPEN".equals(ex.getErrorCode())) {
+            return "circuit_open";
+        }
         return ex.getHttpStatus() >= 500 ? "upstream_error" : "validation_error";
     }
 
@@ -271,5 +609,148 @@ public class SearchServiceImpl implements SearchService {
 
     private void incrementUpstreamErrorCounter(String code) {
         meterRegistry.counter("search.upstream.errors", "code", code).increment();
+    }
+
+    private <T> T getCached(Map<String, CacheEntry<T>> cache, String key, String cacheName) {
+        evictExpiredEntries(cache);
+        CacheEntry<T> entry = cache.get(key);
+        if (entry == null || entry.isExpired()) {
+            if (entry != null) {
+                cache.remove(key);
+            }
+            return null;
+        }
+
+        meterRegistry.counter("search.cache.hits", "cache", cacheName).increment();
+        return entry.value();
+    }
+
+    private <T> void putCached(Map<String, CacheEntry<T>> cache, String key, T value) {
+        evictExpiredEntries(cache);
+        trimCacheIfNeeded(cache);
+        cache.put(key, new CacheEntry<>(value, Instant.now().plusSeconds(cacheTtlSeconds)));
+    }
+
+    private <T> void evictExpiredEntries(Map<String, CacheEntry<T>> cache) {
+        cache.entrySet().removeIf(entry -> entry.getValue().isExpired());
+    }
+
+    private <T> void trimCacheIfNeeded(Map<String, CacheEntry<T>> cache) {
+        if (cache.size() < cacheMaxEntries) {
+            return;
+        }
+        String oldestKey = cache.entrySet().stream()
+            .min(Map.Entry.comparingByValue(Comparator.comparing(CacheEntry::expiresAt)))
+            .map(Map.Entry::getKey)
+            .orElse(null);
+        if (oldestKey != null) {
+            cache.remove(oldestKey);
+        }
+    }
+
+    private synchronized void ensureCircuitClosed() {
+        if (circuitOpenedAt == null) {
+            return;
+        }
+
+        if (Duration.between(circuitOpenedAt, Instant.now()).getSeconds() >= circuitOpenSeconds) {
+            circuitOpenedAt = null;
+            consecutiveUpstreamFailures.set(0);
+            return;
+        }
+
+        throw new SearchServiceException(
+            "SEARCH_CIRCUIT_OPEN",
+            "Search is temporarily unavailable while upstream failures recover",
+            503
+        );
+    }
+
+    private synchronized void recordUpstreamSuccess() {
+        consecutiveUpstreamFailures.set(0);
+        circuitOpenedAt = null;
+    }
+
+    private synchronized void recordUpstreamFailure(String errorCode) {
+        int failures = consecutiveUpstreamFailures.incrementAndGet();
+        incrementUpstreamErrorCounter(errorCode);
+        if (failures >= circuitFailureThreshold) {
+            circuitOpenedAt = Instant.now();
+        }
+    }
+
+    private boolean isRetryable(SearchServiceException ex) {
+        return "SEARCH_UPSTREAM_EMPTY".equals(ex.getErrorCode());
+    }
+
+    private void sleepBeforeRetry() {
+        if (retryBackoffMs <= 0) {
+            return;
+        }
+
+        try {
+            Thread.sleep(retryBackoffMs);
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+            throw new SearchServiceException(
+                "SEARCH_UPSTREAM_FAILED",
+                "Search retry was interrupted",
+                502
+            );
+        }
+    }
+
+    private record SearchRequest(
+        String title,
+        String company,
+        String location,
+        String employmentType,
+        BigDecimal salaryMin,
+        BigDecimal salaryMax,
+        String status,
+        int page,
+        int size,
+        String sort
+    ) {
+        private int offset() {
+            return page * size;
+        }
+
+        private boolean usesDefaultSort() {
+            return DEFAULT_SORT.equals(sort);
+        }
+
+        private String cacheKey() {
+            return String.join("|",
+                Optional.ofNullable(title).orElse(""),
+                Optional.ofNullable(company).orElse(""),
+                Optional.ofNullable(location).orElse(""),
+                Optional.ofNullable(employmentType).orElse(""),
+                Optional.ofNullable(salaryMin).map(BigDecimal::toPlainString).orElse(""),
+                Optional.ofNullable(salaryMax).map(BigDecimal::toPlainString).orElse(""),
+                status,
+                Integer.toString(page),
+                Integer.toString(size),
+                sort
+            );
+        }
+
+        private String facetsCacheKey() {
+            return String.join("|",
+                Optional.ofNullable(title).orElse(""),
+                Optional.ofNullable(company).orElse(""),
+                Optional.ofNullable(location).orElse(""),
+                Optional.ofNullable(employmentType).orElse(""),
+                Optional.ofNullable(salaryMin).map(BigDecimal::toPlainString).orElse(""),
+                Optional.ofNullable(salaryMax).map(BigDecimal::toPlainString).orElse(""),
+                status
+            );
+        }
+    }
+
+    private record CacheEntry<T>(T value, Instant expiresAt) {
+        private boolean isExpired() {
+            return Instant.now().isAfter(expiresAt);
+        }
     }
 }

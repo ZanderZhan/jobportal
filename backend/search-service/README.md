@@ -70,6 +70,17 @@ Milestone 2 behavior:
 - Invalid search input is returned as `400 Bad Request` with a structured error body.
 - Metrics are emitted for request count, request latency, and upstream error count through Micrometer/Actuator.
 
+Milestone 3 behavior:
+
+- Default search ordering is now search-aware instead of simple passthrough ordering.
+- Exact and partial text matches are ranked ahead of weaker matches, with recency used as a secondary signal.
+- Ranking is applied on the default search sort using an upstream candidate window before the final page slice is returned.
+- Frequent normalized search requests are cached in-memory for a short TTL to reduce repeated upstream calls.
+- Search facets are available at `GET /api/search/jobs/facets` for `location`, `company`, and `employmentType`.
+- Upstream calls use explicit connect/read timeouts.
+- Search retries upstream failures a limited number of times before failing.
+- A simple circuit-breaker opens after repeated upstream failures and returns `503 Service Unavailable` while the upstream is cooling down.
+
 ## Docker
 
 ```bash

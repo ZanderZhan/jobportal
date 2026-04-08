@@ -1,10 +1,27 @@
 services:
   job-service:
     url: http://localhost:8081
+    connect-timeout-ms: 100
+    read-timeout-ms: 100
 
 search:
   pagination:
     max-size: 100
+  ranking:
+    max-candidate-window: 200
+  cache:
+    ttl-seconds: 30
+    max-entries: 200
+  facets:
+    sample-size: 200
+    max-values: 10
+  resilience:
+    retry:
+      max-attempts: 2
+      backoff-ms: 0
+    circuit-breaker:
+      failure-threshold: 3
+      open-seconds: 30
 
 logging:
   level:

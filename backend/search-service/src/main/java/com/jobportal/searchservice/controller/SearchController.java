@@ -1,5 +1,6 @@
 package com.jobportal.searchservice.controller;
 
+import com.jobportal.searchservice.dto.JobSearchFacetsResponse;
 import com.jobportal.searchservice.dto.JobSearchResult;
 import com.jobportal.searchservice.dto.PagedResponse;
 import com.jobportal.searchservice.service.SearchService;
@@ -49,6 +50,30 @@ public class SearchController {
             page,
             size,
             sort
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/jobs/facets")
+    @Operation(summary = "Get job search facets")
+    public ResponseEntity<JobSearchFacetsResponse> getJobSearchFacets(
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) String company,
+            @RequestParam(required = false) String location,
+            @RequestParam(required = false) String employmentType,
+            @RequestParam(required = false) BigDecimal salaryMin,
+            @RequestParam(required = false) BigDecimal salaryMax,
+            @RequestParam(required = false) String status) {
+
+        JobSearchFacetsResponse response = searchService.getJobSearchFacets(
+            title,
+            company,
+            location,
+            employmentType,
+            salaryMin,
+            salaryMax,
+            status
         );
 
         return ResponseEntity.ok(response);
