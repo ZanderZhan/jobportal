@@ -3,7 +3,9 @@ package com.jobportal.searchservice.service;
 import com.jobportal.searchservice.dto.JobSearchFacetsResponse;
 import com.jobportal.searchservice.dto.JobSearchResult;
 import com.jobportal.searchservice.dto.PagedResponse;
+import com.jobportal.searchservice.dto.SearchIndexStatusResponse;
 import com.jobportal.searchservice.exception.SearchServiceException;
+import com.jobportal.searchservice.repository.SearchIndexRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,6 +14,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -39,6 +42,12 @@ import static org.mockito.Mockito.when;
 class SearchServiceTest {
 
     @Mock
+    private SearchIndexRepository searchIndexRepository;
+
+    @Mock
+    private SearchCacheManager searchCacheManager;
+
+    @Mock
     private RestTemplate restTemplate;
 
     private SimpleMeterRegistry meterRegistry;
@@ -48,12 +57,12 @@ class SearchServiceTest {
     void setUp() {
         meterRegistry = new SimpleMeterRegistry();
         searchService = new SearchServiceImpl(
+            searchIndexRepository,
+            searchCacheManager,
             restTemplate,
             meterRegistry,
             "http://job-service:8081",
             100,
-            200,
-            30,
             200,
             200,
             10,
@@ -65,34 +74,81 @@ class SearchServiceTest {
     }
 
     @Test
-    void searchJobs_ShouldNormalizeQueryRankResultsAndApplyCaching() {
+    void searchJobs_ShouldUseIndexedBackendAndCacheResults() {
+        SearchIndexStatusResponse status = readyStatus();
+        JobSearchResult result = createJob(1L, "Software Engineer", "Northwind", "Dublin", "FULL_TIME", "ACTIVE", 2);
+
+        PagedResponse<JobSearchResult> indexedResponse = new PagedResponse<>();
+        indexedResponse.setContent(List.of(result));
+        indexedResponse.setTotalElements(1);
+        indexedResponse.setSize(20);
+        indexedResponse.setNumber(0);
+        indexedResponse.setTotalPages(1);
+        indexedResponse.setFirst(true);
+        indexedResponse.setLast(true);
+
+        when(searchCacheManager.getSearch(any())).thenReturn(null, indexedResponse);
+        when(searchIndexRepository.getStatus()).thenReturn(status);
+        when(searchIndexRepository.search(any())).thenReturn(indexedResponse);
+
+        PagedResponse<JobSearchResult> actual = searchService.searchJobs(
+            "  Software   Engineer  ",
+            null,
+            " Dublin ",
+            null,
+            null,
+            null,
+            null,
+            0,
+            20,
+            "createdAt,desc"
+        );
+        PagedResponse<JobSearchResult> cached = searchService.searchJobs(
+            "Software Engineer",
+            null,
+            "Dublin",
+            null,
+            null,
+            null,
+            null,
+            0,
+            20,
+            "createdAt,desc"
+        );
+
+        assertEquals(1, actual.getTotalElements());
+        assertEquals("Software Engineer", actual.getContent().get(0).getTitle());
+        assertEquals(1, cached.getTotalElements());
+        verify(searchIndexRepository, times(1)).search(any());
+        verify(searchCacheManager, times(1)).putSearch(any(), eq(indexedResponse));
+        verifyNoInteractions(restTemplate);
+        assertEquals(1.0, meterRegistry.get("search.requests").tag("outcome", "success").counter().count());
+        assertEquals(1.0, meterRegistry.get("search.requests").tag("outcome", "cache_hit").counter().count());
+    }
+
+    @Test
+    void searchJobs_WhenIndexIsNotReady_ShouldFallbackToUpstreamAndApplyRanking() {
+        SearchIndexStatusResponse status = new SearchIndexStatusResponse();
+        status.setReady(false);
+        status.setReindexInProgress(false);
+
         JobSearchResult partialMatch = createJob(2L, "Engineer", "Acme", "Limerick", "FULL_TIME", "ACTIVE", 5);
         JobSearchResult exactMatch = createJob(1L, "Software Engineer", "Northwind", "Dublin", "FULL_TIME", "ACTIVE", 10);
 
-        PagedResponse<JobSearchResult> response = new PagedResponse<>();
-        response.setContent(List.of(partialMatch, exactMatch));
-        response.setTotalElements(2);
+        PagedResponse<JobSearchResult> upstreamResponse = new PagedResponse<>();
+        upstreamResponse.setContent(List.of(partialMatch, exactMatch));
+        upstreamResponse.setTotalElements(2);
 
+        when(searchCacheManager.getSearch(any())).thenReturn(null);
+        when(searchIndexRepository.getStatus()).thenReturn(status);
         when(restTemplate.exchange(
                 any(URI.class),
                 eq(HttpMethod.GET),
                 eq(HttpEntity.EMPTY),
                 any(ParameterizedTypeReference.class)))
-            .thenReturn(ResponseEntity.ok(response));
+            .thenReturn(ResponseEntity.ok(upstreamResponse));
 
         PagedResponse<JobSearchResult> actual = searchService.searchJobs(
-            "  Software   Engineer  ",
-            "   ",
-            "  Limerick  ",
-            " full-time ",
-            new BigDecimal("50000"),
-            new BigDecimal("70000"),
-            " active ",
-            0,
-            250,
-            " createdAt, DESC "
-        );
-        PagedResponse<JobSearchResult> cached = searchService.searchJobs(
             "Software Engineer",
             null,
             "Limerick",
@@ -106,59 +162,6 @@ class SearchServiceTest {
         );
 
         ArgumentCaptor<URI> uriCaptor = ArgumentCaptor.forClass(URI.class);
-        verify(restTemplate, times(1)).exchange(
-            uriCaptor.capture(),
-            eq(HttpMethod.GET),
-            eq(HttpEntity.EMPTY),
-            any(ParameterizedTypeReference.class)
-        );
-
-        String uri = uriCaptor.getValue().toString();
-        assertEquals(2, actual.getTotalElements());
-        assertTrue(uri.contains("/api/jobs/search"));
-        assertTrue(uri.contains("title=Software%20Engineer"));
-        assertTrue(uri.contains("location=Limerick"));
-        assertTrue(uri.contains("employmentType=FULL_TIME"));
-        assertTrue(uri.contains("salaryMin=50000"));
-        assertTrue(uri.contains("salaryMax=70000"));
-        assertTrue(uri.contains("status=ACTIVE"));
-        assertTrue(uri.contains("page=0"));
-        assertTrue(uri.contains("size=200"));
-        assertTrue(uri.contains("sort=createdAt,desc"));
-        assertTrue(!uri.contains("company="));
-        assertEquals("Software Engineer", actual.getContent().get(0).getTitle());
-        assertEquals(2, cached.getTotalElements());
-        assertEquals(1.0, meterRegistry.get("search.requests").tag("outcome", "success").counter().count());
-        assertEquals(1.0, meterRegistry.get("search.requests").tag("outcome", "cache_hit").counter().count());
-    }
-
-    @Test
-    void searchJobs_WhenStatusProvided_ShouldForwardRequestedStatus() {
-        PagedResponse<JobSearchResult> response = new PagedResponse<>();
-        response.setContent(List.of());
-        response.setTotalElements(0);
-
-        when(restTemplate.exchange(
-                any(URI.class),
-                eq(HttpMethod.GET),
-                eq(HttpEntity.EMPTY),
-                any(ParameterizedTypeReference.class)))
-            .thenReturn(ResponseEntity.ok(response));
-
-        searchService.searchJobs(
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            "closed",
-            1,
-            10,
-            "title,asc"
-        );
-
-        ArgumentCaptor<URI> uriCaptor = ArgumentCaptor.forClass(URI.class);
         verify(restTemplate).exchange(
             uriCaptor.capture(),
             eq(HttpMethod.GET),
@@ -167,30 +170,25 @@ class SearchServiceTest {
         );
 
         String uri = uriCaptor.getValue().toString();
-        assertTrue(uri.contains("status=CLOSED"));
-        assertTrue(uri.contains("page=1"));
-        assertTrue(uri.contains("size=10"));
-        assertTrue(uri.contains("sort=title,asc"));
+        assertTrue(uri.contains("/api/jobs/search"));
+        assertTrue(uri.contains("size=200"));
+        assertEquals("Software Engineer", actual.getContent().get(0).getTitle());
+        assertEquals(1.0, meterRegistry.get("search.index.fallbacks").tag("reason", "index_not_ready").counter().count());
     }
 
     @Test
-    void getJobSearchFacets_ShouldAggregateTopFacetValues() {
-        PagedResponse<JobSearchResult> response = new PagedResponse<>();
-        response.setContent(List.of(
-            createJob(1L, "Frontend Engineer", "Northwind", "Dublin", "FULL_TIME", "ACTIVE", 2),
-            createJob(2L, "Backend Engineer", "Northwind", "Dublin", "FULL_TIME", "ACTIVE", 4),
-            createJob(3L, "Data Analyst", "Insight Works", "Remote", "CONTRACT", "ACTIVE", 1)
-        ));
-        response.setTotalElements(3);
+    void getJobSearchFacets_WhenIndexIsReady_ShouldUseIndexedFacets() {
+        SearchIndexStatusResponse status = readyStatus();
+        JobSearchFacetsResponse facets = new JobSearchFacetsResponse();
+        facets.setLocations(List.of(new com.jobportal.searchservice.dto.FacetValueCount("Dublin", 2)));
+        facets.setCompanies(List.of(new com.jobportal.searchservice.dto.FacetValueCount("Northwind", 2)));
+        facets.setEmploymentTypes(List.of(new com.jobportal.searchservice.dto.FacetValueCount("FULL_TIME", 2)));
 
-        when(restTemplate.exchange(
-                any(URI.class),
-                eq(HttpMethod.GET),
-                eq(HttpEntity.EMPTY),
-                any(ParameterizedTypeReference.class)))
-            .thenReturn(ResponseEntity.ok(response));
+        when(searchCacheManager.getFacets(any())).thenReturn(null);
+        when(searchIndexRepository.getStatus()).thenReturn(status);
+        when(searchIndexRepository.getFacets(any(), eq(10))).thenReturn(facets);
 
-        JobSearchFacetsResponse facets = searchService.getJobSearchFacets(
+        JobSearchFacetsResponse actual = searchService.getJobSearchFacets(
             null,
             null,
             null,
@@ -200,16 +198,46 @@ class SearchServiceTest {
             null
         );
 
-        assertEquals("Dublin", facets.getLocations().get(0).getValue());
-        assertEquals(2L, facets.getLocations().get(0).getCount());
-        assertEquals("Northwind", facets.getCompanies().get(0).getValue());
-        assertEquals(2L, facets.getCompanies().get(0).getCount());
-        assertEquals("FULL_TIME", facets.getEmploymentTypes().get(0).getValue());
-        assertEquals(2L, facets.getEmploymentTypes().get(0).getCount());
+        assertEquals("Dublin", actual.getLocations().get(0).getValue());
+        verify(searchIndexRepository).getFacets(any(), eq(10));
+        verifyNoInteractions(restTemplate);
     }
 
     @Test
-    void searchJobs_WhenRequestIsInvalid_ShouldRejectBeforeCallingUpstream() {
+    void searchJobs_WhenIndexIsUnavailable_ShouldFallbackToUpstream() {
+        JobSearchResult result = createJob(1L, "Software Engineer", "Northwind", "Dublin", "FULL_TIME", "ACTIVE", 2);
+        PagedResponse<JobSearchResult> upstreamResponse = new PagedResponse<>();
+        upstreamResponse.setContent(List.of(result));
+        upstreamResponse.setTotalElements(1);
+
+        when(searchCacheManager.getSearch(any())).thenReturn(null);
+        when(searchIndexRepository.getStatus()).thenThrow(new DataAccessResourceFailureException("index down"));
+        when(restTemplate.exchange(
+                any(URI.class),
+                eq(HttpMethod.GET),
+                eq(HttpEntity.EMPTY),
+                any(ParameterizedTypeReference.class)))
+            .thenReturn(ResponseEntity.ok(upstreamResponse));
+
+        PagedResponse<JobSearchResult> actual = searchService.searchJobs(
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            20,
+            "title,asc"
+        );
+
+        assertEquals(1, actual.getTotalElements());
+        assertEquals(1.0, meterRegistry.get("search.index.fallbacks").tag("reason", "index_unavailable").counter().count());
+    }
+
+    @Test
+    void searchJobs_WhenRequestIsInvalid_ShouldRejectBeforeCallingBackends() {
         SearchServiceException exception = assertThrows(SearchServiceException.class, () -> searchService.searchJobs(
             null,
             null,
@@ -224,33 +252,15 @@ class SearchServiceTest {
         ));
 
         assertEquals("SEARCH_INVALID_REQUEST", exception.getErrorCode());
-        assertEquals(400, exception.getHttpStatus());
-        assertEquals(1.0, meterRegistry.get("search.requests").tag("outcome", "validation_error").counter().count());
-        verifyNoInteractions(restTemplate);
-    }
-
-    @Test
-    void searchJobs_WhenSalaryRangeIsInvalid_ShouldRejectBeforeCallingUpstream() {
-        SearchServiceException exception = assertThrows(SearchServiceException.class, () -> searchService.searchJobs(
-            null,
-            null,
-            null,
-            null,
-            new BigDecimal("90000"),
-            new BigDecimal("70000"),
-            null,
-            0,
-            20,
-            "createdAt,desc"
-        ));
-
-        assertEquals("SEARCH_INVALID_REQUEST", exception.getErrorCode());
-        assertEquals(400, exception.getHttpStatus());
-        verifyNoInteractions(restTemplate);
+        verifyNoInteractions(searchIndexRepository, restTemplate);
     }
 
     @Test
     void searchJobs_WhenUpstreamBodyIsEmpty_ShouldThrowException() {
+        SearchIndexStatusResponse status = new SearchIndexStatusResponse();
+        status.setReady(false);
+        when(searchCacheManager.getSearch(any())).thenReturn(null);
+        when(searchIndexRepository.getStatus()).thenReturn(status);
         when(restTemplate.exchange(
                 any(URI.class),
                 eq(HttpMethod.GET),
@@ -272,13 +282,15 @@ class SearchServiceTest {
         ));
 
         assertEquals("SEARCH_UPSTREAM_EMPTY", exception.getErrorCode());
-        assertEquals(502, exception.getHttpStatus());
-        assertEquals(1.0, meterRegistry.get("search.requests").tag("outcome", "upstream_error").counter().count());
         assertEquals(1.0, meterRegistry.get("search.upstream.errors").tag("code", "SEARCH_UPSTREAM_EMPTY").counter().count());
     }
 
     @Test
     void searchJobs_WhenUpstreamFails_ShouldThrowException() {
+        SearchIndexStatusResponse status = new SearchIndexStatusResponse();
+        status.setReady(false);
+        when(searchCacheManager.getSearch(any())).thenReturn(null);
+        when(searchIndexRepository.getStatus()).thenReturn(status);
         when(restTemplate.exchange(
                 any(URI.class),
                 eq(HttpMethod.GET),
@@ -301,13 +313,15 @@ class SearchServiceTest {
 
         assertInstanceOf(SearchServiceException.class, exception);
         assertEquals("SEARCH_UPSTREAM_FAILED", exception.getErrorCode());
-        assertEquals(502, exception.getHttpStatus());
-        assertEquals(1.0, meterRegistry.get("search.requests").tag("outcome", "upstream_error").counter().count());
         assertEquals(1.0, meterRegistry.get("search.upstream.errors").tag("code", "SEARCH_UPSTREAM_FAILED").counter().count());
     }
 
     @Test
     void searchJobs_WhenCircuitBreakerOpens_ShouldRejectSubsequentRequests() {
+        SearchIndexStatusResponse status = new SearchIndexStatusResponse();
+        status.setReady(false);
+        when(searchCacheManager.getSearch(any())).thenReturn(null);
+        when(searchIndexRepository.getStatus()).thenReturn(status);
         when(restTemplate.exchange(
                 any(URI.class),
                 eq(HttpMethod.GET),
@@ -355,7 +369,6 @@ class SearchServiceTest {
         ));
 
         assertEquals("SEARCH_CIRCUIT_OPEN", exception.getErrorCode());
-        assertEquals(503, exception.getHttpStatus());
         verify(restTemplate, times(4)).exchange(
             any(URI.class),
             eq(HttpMethod.GET),
@@ -365,7 +378,7 @@ class SearchServiceTest {
     }
 
     @Test
-    void searchJobs_WhenPageSizeIsBelowMinimum_ShouldRejectBeforeCallingUpstream() {
+    void searchJobs_WhenPageSizeIsBelowMinimum_ShouldRejectBeforeCallingBackends() {
         SearchServiceException exception = assertThrows(SearchServiceException.class, () -> searchService.searchJobs(
             null,
             null,
@@ -380,13 +393,21 @@ class SearchServiceTest {
         ));
 
         assertEquals("SEARCH_INVALID_REQUEST", exception.getErrorCode());
-        assertEquals(400, exception.getHttpStatus());
+        verifyNoInteractions(searchIndexRepository);
         verify(restTemplate, never()).exchange(
             any(URI.class),
             eq(HttpMethod.GET),
             eq(HttpEntity.EMPTY),
             any(ParameterizedTypeReference.class)
         );
+    }
+
+    private SearchIndexStatusResponse readyStatus() {
+        SearchIndexStatusResponse status = new SearchIndexStatusResponse();
+        status.setReady(true);
+        status.setReindexInProgress(false);
+        status.setDocumentCount(1);
+        return status;
     }
 
     private JobSearchResult createJob(

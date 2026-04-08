@@ -4,6 +4,15 @@ server:
 spring:
   application:
     name: search-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/jobportal
+    username: postgres
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  sql:
+    init:
+      mode: always
+      platform: postgresql
 
 services:
   job-service:
@@ -14,6 +23,8 @@ services:
 search:
   pagination:
     max-size: ${SEARCH_PAGINATION_MAX_SIZE:100}
+  index:
+    reindex-page-size: ${SEARCH_INDEX_REINDEX_PAGE_SIZE:200}
   ranking:
     max-candidate-window: ${SEARCH_RANKING_MAX_CANDIDATE_WINDOW:200}
   cache:

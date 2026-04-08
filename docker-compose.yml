@@ -68,6 +68,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jobportal
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SEARCH_SERVICE_URL: http://search-service:8083
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,7 +89,12 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       JOB_SERVICE_URL: http://job-service:8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jobportal
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
     depends_on:
+      postgres:
+        condition: service_healthy
       job-service:
         condition: service_healthy
     healthcheck:

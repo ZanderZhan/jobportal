@@ -4,7 +4,7 @@ A dedicated backend microservice for search-related APIs in the Job Portal appli
 
 ## Current Scope
 
-The service exposes a search-focused API at `/api/search/jobs` and currently proxies job discovery requests to `job-service`. This gives the backend a stable search boundary now, while leaving room for a later move to indexing, ranking, caching, or full-text search without changing external clients again.
+The service exposes a search-focused API at `/api/search/jobs`. Public search traffic enters through `search-service`, and the service now maintains its own PostgreSQL-backed search index so read behavior can evolve independently from `job-service` CRUD queries.
 
 ## Technology Stack
 
@@ -12,7 +12,9 @@ The service exposes a search-focused API at `/api/search/jobs` and currently pro
 - Spring Boot 4.0.2
 - Spring Web
 - Spring Validation
+- Spring JDBC
 - Spring Actuator
+- PostgreSQL
 - OpenAPI/Swagger
 
 ## Run Locally
@@ -29,10 +31,13 @@ The service runs at `http://localhost:8083`.
 |----------|---------|-------------|
 | `server.port` | `8083` | Service port |
 | `services.job-service.url` | `http://localhost:8081` | Upstream job-service base URL |
+| `spring.datasource.url` | `jdbc:postgresql://localhost:5432/jobportal` | Search index database |
+| `search.index.reindex-page-size` | `200` | Page size used for full reindex backfills |
 
 ## API
 
 - `GET /api/search/jobs`
+- `GET /api/search/jobs/facets`
 
 Supported query parameters:
 
@@ -80,6 +85,18 @@ Milestone 3 behavior:
 - Upstream calls use explicit connect/read timeouts.
 - Search retries upstream failures a limited number of times before failing.
 - A simple circuit-breaker opens after repeated upstream failures and returns `503 Service Unavailable` while the upstream is cooling down.
+
+Milestone 4 behavior:
+
+- Public search reads now prefer a local PostgreSQL-backed search index instead of synchronous proxying.
+- The index is stored in `job_search_documents` and can evolve separately from `job-service` repository queries.
+- Search falls back to the upstream `job-service` search path while the index is not ready, while a reindex is running, or when the index backend is unavailable.
+- Internal index status is available at `GET /internal/search/index/status`.
+- Full backfills are triggered with `POST /internal/search/index/reindex`.
+- Incremental sync uses `PUT /internal/search/index/jobs/{id}` and `DELETE /internal/search/index/jobs/{id}`.
+- `job-service` now pushes create, update, and delete events to the internal sync endpoints after successful commits.
+- Reindexing truncates and rebuilds the local index from paged `job-service` reads, then marks the index ready when complete.
+- Cached search and facet responses are cleared after index updates so frontend reads do not serve stale indexed data.
 
 ## Docker
 
