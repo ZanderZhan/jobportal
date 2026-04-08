@@ -58,29 +58,23 @@ class JobServiceTest {
         testJob.setCreatedAt(LocalDateTime.now());
         testJob.setUpdatedAt(LocalDateTime.now());
 
-        testRequest = new JobRequest();
-        testRequest.setTitle("Software Engineer");
-        testRequest.setDescription("Build amazing software");
-        testRequest.setCompany("Tech Corp");
-        testRequest.setLocation("San Francisco, CA");
-        testRequest.setEmploymentType(EmploymentType.FULL_TIME);
-        testRequest.setSalaryMin(new BigDecimal("80000"));
-        testRequest.setSalaryMax(new BigDecimal("120000"));
-        testRequest.setSalaryCurrency("USD");
-        testRequest.setRequirements(Arrays.asList("Java", "Spring Boot"));
-        testRequest.setStatus(JobStatus.ACTIVE);
+        testRequest = new JobRequest(
+                "Software Engineer", "Build amazing software", "Tech Corp",
+                "San Francisco, CA", EmploymentType.FULL_TIME,
+                new BigDecimal("80000"), new BigDecimal("120000"), "USD",
+                Arrays.asList("Java", "Spring Boot"), JobStatus.ACTIVE);
     }
 
     @Test
     void createJob_ShouldReturnCreatedJob() {
         when(jobRepository.save(any(Job.class))).thenReturn(testJob);
 
-        JobResponse response = jobService.createJob(testRequest);
+        JobResponse response = jobService.createJob(testRequest, "employer-123");
 
         assertNotNull(response);
-        assertEquals(testJob.getId(), response.getId());
-        assertEquals(testJob.getTitle(), response.getTitle());
-        assertEquals(testJob.getCompany(), response.getCompany());
+        assertEquals(testJob.getId(), response.id());
+        assertEquals(testJob.getTitle(), response.title());
+        assertEquals(testJob.getCompany(), response.company());
         verify(jobRepository, times(1)).save(any(Job.class));
     }
 
@@ -91,8 +85,8 @@ class JobServiceTest {
         JobResponse response = jobService.getJobById(1L);
 
         assertNotNull(response);
-        assertEquals(testJob.getId(), response.getId());
-        assertEquals(testJob.getTitle(), response.getTitle());
+        assertEquals(testJob.getId(), response.id());
+        assertEquals(testJob.getTitle(), response.title());
     }
 
     @Test
@@ -114,7 +108,7 @@ class JobServiceTest {
 
         assertNotNull(response);
         assertEquals(1, response.getTotalElements());
-        assertEquals(testJob.getTitle(), response.getContent().get(0).getTitle());
+        assertEquals(testJob.getTitle(), response.getContent().get(0).title());
     }
 
     @Test
@@ -122,8 +116,12 @@ class JobServiceTest {
         when(jobRepository.findById(1L)).thenReturn(Optional.of(testJob));
         when(jobRepository.save(any(Job.class))).thenReturn(testJob);
 
-        testRequest.setTitle("Senior Software Engineer");
-        JobResponse response = jobService.updateJob(1L, testRequest);
+        JobRequest updateRequest = new JobRequest(
+                "Senior Software Engineer", testRequest.description(), testRequest.company(),
+                testRequest.location(), testRequest.employmentType(),
+                testRequest.salaryMin(), testRequest.salaryMax(), testRequest.salaryCurrency(),
+                testRequest.requirements(), testRequest.status());
+        JobResponse response = jobService.updateJob(1L, updateRequest);
 
         assertNotNull(response);
         verify(jobRepository, times(1)).save(any(Job.class));
@@ -159,12 +157,10 @@ class JobServiceTest {
         List<Job> jobs = Arrays.asList(testJob);
         Page<Job> jobPage = new PageImpl<>(jobs, pageable, jobs.size());
 
-        JobSearchCriteria criteria = new JobSearchCriteria();
-        criteria.setTitle("Software");
-        criteria.setLocation("San Francisco");
+        JobSearchCriteria criteria = new JobSearchCriteria("Software", null, "San Francisco", null, null, null, null, null);
 
         when(jobRepository.searchJobs(
-                any(), any(), any(), any(), any(), any(), any(), any()
+                any(), any(), any(), any(), any(), any(), any(), any(), any()
         )).thenReturn(jobPage);
 
         Page<JobResponse> response = jobService.searchJobs(criteria, pageable);

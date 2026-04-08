@@ -2,6 +2,7 @@ import { api } from './api';
 
 export interface Job {
   id: number;
+  employerId: string | null;
   title: string;
   description: string;
   company: string;
@@ -24,6 +25,7 @@ export interface JobSearchParams {
   salaryMin?: number;
   salaryMax?: number;
   status?: string;
+  employerId?: string;
   page?: number;
   size?: number;
   sort?: string;
@@ -62,6 +64,7 @@ export async function searchJobs(params: JobSearchParams = {}): Promise<PagedRes
   if (params.salaryMin !== undefined) searchParams.set('salaryMin', params.salaryMin.toString());
   if (params.salaryMax !== undefined) searchParams.set('salaryMax', params.salaryMax.toString());
   if (params.status) searchParams.set('status', params.status);
+  if (params.employerId) searchParams.set('employerId', params.employerId);
   if (params.page !== undefined) searchParams.set('page', params.page.toString());
   if (params.size !== undefined) searchParams.set('size', params.size.toString());
   if (params.sort) searchParams.set('sort', params.sort);
@@ -73,6 +76,33 @@ export async function searchJobs(params: JobSearchParams = {}): Promise<PagedRes
 export async function getJobById(id: number): Promise<Job> {
   const response = await api.get(`${JOB_API_PATH}/${id}`);
   return response.data;
+}
+
+export interface JobRequest {
+  title: string;
+  description: string;
+  company: string;
+  location?: string;
+  employmentType?: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryCurrency?: string;
+  requirements?: string[];
+  status?: 'DRAFT' | 'ACTIVE' | 'CLOSED';
+}
+
+export async function createJob(job: JobRequest): Promise<Job> {
+  const response = await api.post(JOB_API_PATH, job);
+  return response.data;
+}
+
+export async function updateJob(id: number, job: JobRequest): Promise<Job> {
+  const response = await api.put(`${JOB_API_PATH}/${id}`, job);
+  return response.data;
+}
+
+export async function deleteJob(id: number): Promise<void> {
+  await api.delete(`${JOB_API_PATH}/${id}`);
 }
 
 export function formatSalary(min: number | null, max: number | null, currency: string | null): string {

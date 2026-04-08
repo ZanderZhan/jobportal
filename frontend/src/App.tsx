@@ -7,6 +7,8 @@ import { CallbackPage } from './pages/auth/CallbackPage';
 import { DashboardPage } from './pages/DashboardPage';
 import JobsPage from './pages/job/JobsPage';
 import JobDetailPage from './pages/job/JobDetailPage';
+import { EmployerJobsPage } from './pages/job/EmployerJobsPage';
+import { JobFormPage } from './pages/job/JobFormPage';
 
 function App() {
   return (
@@ -26,6 +28,31 @@ function App() {
           />
           <Route path="/jobs" element={<JobsPage />} />
           <Route path="/jobs/:id" element={<JobDetailPage />} />
+          {/* Employer routes */}
+          <Route
+            path="/employer/jobs"
+            element={
+              <ProtectedRoute>
+                <EmployerJobsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employer/jobs/new"
+            element={
+              <ProtectedRoute>
+                <JobFormPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employer/jobs/:id/edit"
+            element={
+              <ProtectedRoute>
+                <JobFormPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

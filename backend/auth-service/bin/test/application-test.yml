@@ -1,0 +1,63 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    database-platform: org.hibernate.dialect.H2Dialect
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  private-key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDGYveiwTbkaGau
+    et2X+98NJgvjoqCHUm7yPXNJlHeIcgjnT+zNJSpEfwSck0pgrWqxAkQGQ+FOE0K9
+    b6oE8bVo4THRrFDQV4Dsh1VyJLxHccmbbgeTWB/U0UNKM5q3OKjP5TVADkzq0y4G
+    LqwZRjh34i+I0ikGmpp3PrQl7sIPhL48E0Tx7tdGLuoSLb5XfV6C9C8IHSHbVn8A
+    ECV5pyv5O31g1JMoMwztKlOCpNNPaIKxSELhGQ57nIt0hlRsooUEnDLJbeO8PvL4
+    THNjstEFGAszgQ7KCVZImtDRw3N7zpPKLH5VOE6x/Va945pB6P6CwnboMzVYSmnT
+    3E/iPcxrAgMBAAECggEAC+vGUEGtAArX+yCt8FdcJWJr/d9EjZOIacadU8Z30lUL
+    41Gie9QbMJqzVvDkDyzy7gHVWM0IAy5VtdcGaYQ+vIRZTCCliiEGW1ach1HdMHin
+    2Gh2f9+gdgpz5GF3QnUSPv/Zp2ihYM3IBIR8c4sl+VCecgNmH+jDyTbIeEXbFze6
+    R5LEbFko6AQO6890vtYX+dHZ2ctSxX4CPF06Im6XDxVxtNxdR/tzmbk6MxHB1TPX
+    miA85hPiWHcd+iOJIq4kV6W82UCs8u6bWEoVNupK7g8D5ndGvhWczvhqHcaSMimq
+    GhNbNebLdkp0jtPTr45kJY0ywj7kap8S3hio2fKANQKBgQD40Gs3mL+QoPGT0t5f
+    c2p1YnEqtZP6CHouuPaPyc32aiYn6Nu0srMuqLgZoWnyo0QMrDf9jU5nTg3MBR8c
+    vjoJncZh5JwzF/FOhd+qHKF6eMEvo0Muufsmhd1scd56WCufKrTvsBuP/CNaULCH
+    zXYWY2sfQzuug2d4NZh4Acrn/QKBgQDMHbe+q69SN9Y8K0As1jmdSkhqefGuTpgg
+    g1s7/OKst3BXxP/mX6lvJdVEhyrDM4uDwfLknESTo/SVWL9uqYwSQwFWdlOurZod
+    7ILHCqGXAuNCnl53+/VfzscFNNx95Ga8gCtbrTEyvY23xl6CGo24tEynmvqJ9sf/
+    45RApyYuhwKBgDk+ikxiQkCeJrZh33OKdEXJfkvbNs5hwOqa928heNdmmJy6AEJU
+    ktD7VE/hSSTf1zorLT6SkiVGWfpEe2H7ihLIT+oZ1K4UphnwxwK2T5iDy76QC1bm
+    xxeX2NeoYw021+JoyvQSSmUYF3Ih+ltkM/T2rqCksUh3RwjrG8cQcoRpAoGBALBh
+    nb4uLbomdgJYfYRBOlgpMJqR9b5iPCMcX2JfDKGjgnjVyywPziI11yz4gINdr1mT
+    54iVYM0UCO5lWkcOS/Qb4rQMXBO+AEeLcRb+oNQVsryGjauxFkBMNr7RBxfinsSV
+    HOKDrtfh5OzBhjl3KLBLXVIYIhfGIN2Gkz2rMttRAoGBAM0414jsuipcpep5pb2O
+    QVm7xxHI2Bx2gawAFfaF156zl9BrC6lH8EeFnyR96l5p2LVR/qLJM9pJqLNqApUx
+    Fb3NqnDdJ5EdYjm+9SCi76hCaD44BWcL04mVwh7HM/tD2Ku142XObcQGWiInaasX
+    KSnJfMLtawxbfbOBd8yWHjkE
+    -----END PRIVATE KEY-----
+  public-key: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxmL3osE25Ghmrnrdl/vf
+    DSYL46Kgh1Ju8j1zSZR3iHII50/szSUqRH8EnJNKYK1qsQJEBkPhThNCvW+qBPG1
+    aOEx0axQ0FeA7IdVciS8R3HJm24Hk1gf1NFDSjOatzioz+U1QA5M6tMuBi6sGUY4
+    d+IviNIpBpqadz60Je7CD4S+PBNE8e7XRi7qEi2+V31egvQvCB0h21Z/ABAleacr
+    +Tt9YNSTKDMM7SpTgqTTT2iCsUhC4RkOe5yLdIZUbKKFBJwyyW3jvD7y+ExzY7LR
+    BRgLM4EOyglWSJrQ0cNze86Tyix+VThOsf1WveOaQej+gsJ26DM1WEpp09xP4j3M
+    awIDAQAB
+    -----END PUBLIC KEY-----
+  access-token-expiry: 3600
+
+allowed-email-domain:

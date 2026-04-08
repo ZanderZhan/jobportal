@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getJobById, type Job, formatSalary, formatEmploymentType, formatDate } from '../../lib/jobApi';
+import { useAuth } from '../../hooks/useAuth';
+import { getJobById, deleteJob, type Job, formatSalary, formatEmploymentType, formatDate } from '../../lib/jobApi';
 import './JobDetailPage.css';
 
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isJobOwner = isAuthenticated && user?.role === 'EMPLOYER' && !!job && job.employerId === user.id;
 
   useEffect(() => {
     async function fetchJob() {
@@ -29,6 +35,21 @@ export default function JobDetailPage() {
     
     fetchJob();
   }, [id]);
+
+  const handleDelete = async () => {
+    if (!id) return;
+    try {
+      setIsDeleting(true);
+      await deleteJob(parseInt(id));
+      navigate('/employer/jobs');
+    } catch (err) {
+      setError('Failed to delete job');
+      console.error(err);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -67,6 +88,39 @@ export default function JobDetailPage() {
           </svg>
           Back
         </button>
+
+        {isJobOwner && (
+          <div className="employer-actions">
+            <Link to={`/employer/jobs/${id}/edit`} className="btn btn-secondary">
+              Edit Job
+            </Link>
+            {showDeleteConfirm ? (
+              <div className="delete-confirm-inline">
+                <span>Delete this job?</span>
+                <button
+                  onClick={handleDelete}
+                  className="btn btn-danger"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="btn btn-danger-outline"
+              >
+                Delete Job
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="job-detail-container">
