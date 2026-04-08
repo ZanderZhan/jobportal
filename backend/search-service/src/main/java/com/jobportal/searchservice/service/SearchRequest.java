@@ -51,4 +51,19 @@ public record SearchRequest(
             status
         );
     }
+
+    public SearchRequest withPageAndSize(int page, int size) {
+        return new SearchRequest(
+            title,
+            company,
+            location,
+            employmentType,
+            salaryMin,
+            salaryMax,
+            status,
+            page,
+            size,
+            sort
+        );
+    }
 }

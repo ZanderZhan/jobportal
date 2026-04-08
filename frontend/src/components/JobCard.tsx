@@ -4,11 +4,16 @@ import './JobCard.css';
 
 interface JobCardProps {
   job: Job;
+  onClick?: (job: Job) => void;
 }
 
-export default function JobCard({ job }: JobCardProps) {
+export default function JobCard({ job, onClick }: JobCardProps) {
   return (
-    <Link to={`/jobs/${job.id}`} className="job-card">
+    <Link
+      to={`/jobs/${job.id}`}
+      className="job-card"
+      onClick={() => onClick?.(job)}
+    >
       <div className="job-card-header">
         <div className="job-card-company-logo">
           {job.company.charAt(0).toUpperCase()}

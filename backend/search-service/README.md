@@ -38,6 +38,13 @@ The service runs at `http://localhost:8083`.
 
 - `GET /api/search/jobs`
 - `GET /api/search/jobs/facets`
+- `GET /api/search/jobs/autocomplete`
+- `GET /api/search/jobs/discovery`
+- `GET /api/search/saved-searches`
+- `POST /api/search/saved-searches`
+- `DELETE /api/search/saved-searches/{id}`
+- `POST /api/search/analytics/click`
+- `POST /api/search/analytics/abandon`
 
 Supported query parameters:
 
@@ -97,6 +104,16 @@ Milestone 4 behavior:
 - `job-service` now pushes create, update, and delete events to the internal sync endpoints after successful commits.
 - Reindexing truncates and rebuilds the local index from paged `job-service` reads, then marks the index ready when complete.
 - Cached search and facet responses are cleared after index updates so frontend reads do not serve stale indexed data.
+
+Milestone 5 behavior:
+
+- Autocomplete suggestions are available at `GET /api/search/jobs/autocomplete?query=...`.
+- Discovery suggestions are available at `GET /api/search/jobs/discovery` and return related searches plus suggested facet buckets.
+- Saved searches are available through `GET`, `POST`, and `DELETE` on `/api/search/saved-searches`.
+- User context can be passed with `X-Search-User-Id`, and anonymous or signed-in sessions can be correlated with `X-Search-Session-Id`.
+- Personalized ranking uses saved-search signals when a user id is available, without changing the public search contract for anonymous callers.
+- Zero-result queries, result clicks, and abandoned searches are stored as analytics events so search quality can be measured.
+- The frontend jobs experience now uses autocomplete, related searches, suggested filters, saved searches, and click/abandon analytics on top of the existing `/api/search/jobs` boundary.
 
 ## Docker
 

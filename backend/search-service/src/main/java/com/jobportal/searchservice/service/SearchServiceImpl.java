@@ -1,17 +1,25 @@
 package com.jobportal.searchservice.service;
 
+import com.jobportal.searchservice.dto.AutocompleteSuggestion;
 import com.jobportal.searchservice.dto.FacetValueCount;
+import com.jobportal.searchservice.dto.JobAutocompleteResponse;
 import com.jobportal.searchservice.dto.JobSearchFacetsResponse;
 import com.jobportal.searchservice.dto.JobSearchResult;
 import com.jobportal.searchservice.dto.PagedResponse;
+import com.jobportal.searchservice.dto.SavedSearchRequest;
+import com.jobportal.searchservice.dto.SavedSearchResponse;
+import com.jobportal.searchservice.dto.SearchAbandonRequest;
+import com.jobportal.searchservice.dto.SearchClickRequest;
+import com.jobportal.searchservice.dto.SearchDiscoveryResponse;
 import com.jobportal.searchservice.dto.SearchIndexStatusResponse;
 import com.jobportal.searchservice.exception.SearchServiceException;
+import com.jobportal.searchservice.repository.SavedSearchRepository;
+import com.jobportal.searchservice.repository.SearchAnalyticsRepository;
 import com.jobportal.searchservice.repository.SearchIndexRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -27,8 +35,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -64,6 +74,8 @@ public class SearchServiceImpl implements SearchService {
     );
 
     private final SearchIndexRepository searchIndexRepository;
+    private final SavedSearchRepository savedSearchRepository;
+    private final SearchAnalyticsRepository searchAnalyticsRepository;
     private final SearchCacheManager searchCacheManager;
     private final RestTemplate restTemplate;
     private final MeterRegistry meterRegistry;
@@ -72,6 +84,8 @@ public class SearchServiceImpl implements SearchService {
     private final int maxCandidateWindow;
     private final int facetSampleSize;
     private final int facetMaxValues;
+    private final int autocompleteLimit;
+    private final int relatedSearchLimit;
     private final int retryMaxAttempts;
     private final long retryBackoffMs;
     private final int circuitFailureThreshold;
@@ -82,6 +96,8 @@ public class SearchServiceImpl implements SearchService {
     @Autowired
     public SearchServiceImpl(
             SearchIndexRepository searchIndexRepository,
+            SavedSearchRepository savedSearchRepository,
+            SearchAnalyticsRepository searchAnalyticsRepository,
             SearchCacheManager searchCacheManager,
             RestTemplate restTemplate,
             MeterRegistry meterRegistry,
@@ -90,11 +106,15 @@ public class SearchServiceImpl implements SearchService {
             @Value("${search.ranking.max-candidate-window:200}") int maxCandidateWindow,
             @Value("${search.facets.sample-size:200}") int facetSampleSize,
             @Value("${search.facets.max-values:10}") int facetMaxValues,
+            @Value("${search.autocomplete.limit:8}") int autocompleteLimit,
+            @Value("${search.discovery.related-limit:6}") int relatedSearchLimit,
             @Value("${search.resilience.retry.max-attempts:2}") int retryMaxAttempts,
             @Value("${search.resilience.retry.backoff-ms:100}") long retryBackoffMs,
             @Value("${search.resilience.circuit-breaker.failure-threshold:3}") int circuitFailureThreshold,
             @Value("${search.resilience.circuit-breaker.open-seconds:30}") long circuitOpenSeconds) {
         this.searchIndexRepository = searchIndexRepository;
+        this.savedSearchRepository = savedSearchRepository;
+        this.searchAnalyticsRepository = searchAnalyticsRepository;
         this.searchCacheManager = searchCacheManager;
         this.restTemplate = restTemplate;
         this.meterRegistry = meterRegistry;
@@ -103,6 +123,8 @@ public class SearchServiceImpl implements SearchService {
         this.maxCandidateWindow = maxCandidateWindow;
         this.facetSampleSize = facetSampleSize;
         this.facetMaxValues = facetMaxValues;
+        this.autocompleteLimit = autocompleteLimit;
+        this.relatedSearchLimit = relatedSearchLimit;
         this.retryMaxAttempts = retryMaxAttempts;
         this.retryBackoffMs = retryBackoffMs;
         this.circuitFailureThreshold = circuitFailureThreshold;
@@ -111,6 +133,8 @@ public class SearchServiceImpl implements SearchService {
 
     @Override
     public PagedResponse<JobSearchResult> searchJobs(
+            String userId,
+            String sessionId,
             String title,
             String company,
             String location,
@@ -139,14 +163,25 @@ public class SearchServiceImpl implements SearchService {
                 sort
             );
 
-            PagedResponse<JobSearchResult> cachedResponse = searchCacheManager.getSearch(request.cacheKey());
-            if (cachedResponse != null) {
-                incrementRequestCounter("cache_hit");
-                return cachedResponse;
+            boolean canUseCache = normalizeText(userId) == null;
+            if (canUseCache) {
+                PagedResponse<JobSearchResult> cachedResponse = searchCacheManager.getSearch(request.cacheKey());
+                if (cachedResponse != null) {
+                    incrementRequestCounter("cache_hit");
+                    return cachedResponse;
+                }
             }
 
-            PagedResponse<JobSearchResult> response = searchViaIndexOrFallback(request);
-            searchCacheManager.putSearch(request.cacheKey(), response);
+            List<SavedSearchResponse> personalizationSignals = loadPersonalizationSignals(userId);
+            PagedResponse<JobSearchResult> response = searchViaIndexOrFallback(request, personalizationSignals);
+
+            if (response.getTotalElements() == 0) {
+                recordZeroResult(userId, sessionId, request);
+            }
+            if (canUseCache) {
+                searchCacheManager.putSearch(request.cacheKey(), response);
+            }
+
             incrementRequestCounter("success");
             return response;
         } catch (SearchServiceException ex) {
@@ -219,11 +254,126 @@ public class SearchServiceImpl implements SearchService {
         }
     }
 
-    private PagedResponse<JobSearchResult> searchViaIndexOrFallback(SearchRequest request) {
+    @Override
+    public JobAutocompleteResponse getJobAutocomplete(String query) {
+        String normalizedQuery = normalizeText(query);
+        JobAutocompleteResponse response = new JobAutocompleteResponse();
+        if (normalizedQuery == null || normalizedQuery.length() < 2) {
+            return response;
+        }
+
+        try {
+            if (isIndexReady()) {
+                response.setSuggestions(searchIndexRepository.autocomplete(normalizedQuery, autocompleteLimit));
+                return response;
+            }
+        } catch (DataAccessException ex) {
+            incrementIndexFallbackCounter("index_unavailable");
+        }
+
+        response.setSuggestions(buildAutocompleteFallback(normalizedQuery));
+        return response;
+    }
+
+    @Override
+    public SearchDiscoveryResponse getSearchDiscovery(
+            String title,
+            String company,
+            String location,
+            String employmentType,
+            BigDecimal salaryMin,
+            BigDecimal salaryMax,
+            String status) {
+
+        SearchRequest request = normalizeRequest(
+            title,
+            company,
+            location,
+            employmentType,
+            salaryMin,
+            salaryMax,
+            status,
+            0,
+            Math.min(facetSampleSize, maxCandidateWindow),
+            SearchRequest.DEFAULT_SORT
+        );
+
+        JobSearchFacetsResponse facetsResponse = facetsViaIndexOrFallback(request);
+        SearchDiscoveryResponse response = new SearchDiscoveryResponse();
+        response.setSuggestedLocations(facetsResponse.getLocations());
+        response.setSuggestedCompanies(facetsResponse.getCompanies());
+        response.setSuggestedEmploymentTypes(facetsResponse.getEmploymentTypes());
+        response.setRelatedSearches(buildRelatedSearches(request));
+        return response;
+    }
+
+    @Override
+    public List<SavedSearchResponse> getSavedSearches(String userId) {
+        return savedSearchRepository.findByUserId(requireUserId(userId));
+    }
+
+    @Override
+    public SavedSearchResponse saveSearch(String userId, SavedSearchRequest request) {
+        String normalizedUserId = requireUserId(userId);
+        String normalizedTitle = normalizeText(request.getTitle());
+        String normalizedCompany = normalizeText(request.getCompany());
+        String normalizedLocation = normalizeText(request.getLocation());
+        String normalizedEmploymentType = normalizeEnumValue(request.getEmploymentType());
+
+        validateEnumValue("employmentType", normalizedEmploymentType, VALID_EMPLOYMENT_TYPES);
+
+        if (normalizedTitle == null
+                && normalizedCompany == null
+                && normalizedLocation == null
+                && normalizedEmploymentType == null) {
+            throw invalidRequest("At least one saved search filter is required");
+        }
+
+        SavedSearchResponse savedSearch = new SavedSearchResponse();
+        savedSearch.setName(resolveSavedSearchName(request.getName(), normalizedTitle, normalizedLocation, normalizedEmploymentType));
+        savedSearch.setTitle(normalizedTitle);
+        savedSearch.setCompany(normalizedCompany);
+        savedSearch.setLocation(normalizedLocation);
+        savedSearch.setEmploymentType(normalizedEmploymentType);
+        return savedSearchRepository.save(normalizedUserId, savedSearch);
+    }
+
+    @Override
+    public void deleteSavedSearch(String userId, Long id) {
+        String normalizedUserId = requireUserId(userId);
+        SavedSearchResponse existing = savedSearchRepository.findByIdAndUserId(id, normalizedUserId)
+            .orElseThrow(() -> notFound("Saved search not found"));
+        savedSearchRepository.deleteById(existing.getId());
+    }
+
+    @Override
+    public void trackSearchClick(String userId, SearchClickRequest request) {
+        String sessionId = normalizeText(request.getSessionId());
+        if (sessionId == null) {
+            throw invalidRequest("sessionId is required");
+        }
+        if (request.getJobId() == null) {
+            throw invalidRequest("jobId is required");
+        }
+        searchAnalyticsRepository.recordClick(normalizeText(userId), sessionId, request.getJobId());
+    }
+
+    @Override
+    public void trackSearchAbandon(String userId, SearchAbandonRequest request) {
+        String sessionId = normalizeText(request.getSessionId());
+        if (sessionId == null) {
+            throw invalidRequest("sessionId is required");
+        }
+        searchAnalyticsRepository.recordAbandon(normalizeText(userId), sessionId);
+    }
+
+    private PagedResponse<JobSearchResult> searchViaIndexOrFallback(
+            SearchRequest request,
+            List<SavedSearchResponse> personalizationSignals) {
         try {
             SearchIndexStatusResponse indexStatus = searchIndexRepository.getStatus();
             if (indexStatus.isReady() && !indexStatus.isReindexInProgress()) {
-                return searchIndexRepository.search(request);
+                return searchIndexedDocuments(request, personalizationSignals);
             }
             incrementIndexFallbackCounter(indexStatus.isReindexInProgress() ? "reindex_in_progress" : "index_not_ready");
         } catch (DataAccessException ex) {
@@ -231,8 +381,27 @@ public class SearchServiceImpl implements SearchService {
         }
 
         return request.usesDefaultSort() && request.offset() < maxCandidateWindow
-            ? buildRankedResponse(request)
+            ? buildRankedResponse(request, personalizationSignals)
             : fetchUpstreamPage(request, request.page(), request.size(), request.sort());
+    }
+
+    private PagedResponse<JobSearchResult> searchIndexedDocuments(
+            SearchRequest request,
+            List<SavedSearchResponse> personalizationSignals) {
+        if (!request.usesDefaultSort() || request.offset() >= maxCandidateWindow) {
+            return searchIndexRepository.search(request);
+        }
+
+        int candidateSize = Math.max((request.page() + 1) * request.size(), request.size() * 3);
+        candidateSize = Math.max(candidateSize, 50);
+        candidateSize = Math.min(candidateSize, maxCandidateWindow);
+
+        PagedResponse<JobSearchResult> indexedResponse = searchIndexRepository.search(request.withPageAndSize(0, candidateSize));
+        List<JobSearchResult> rankedContent = indexedResponse.getContent().stream()
+            .sorted(rankingComparator(request, personalizationSignals))
+            .toList();
+
+        return sliceResponse(rankedContent, indexedResponse.getTotalElements(), request.page(), request.size());
     }
 
     private JobSearchFacetsResponse facetsViaIndexOrFallback(SearchRequest request) {
@@ -296,14 +465,16 @@ public class SearchServiceImpl implements SearchService {
         );
     }
 
-    private PagedResponse<JobSearchResult> buildRankedResponse(SearchRequest request) {
+    private PagedResponse<JobSearchResult> buildRankedResponse(
+            SearchRequest request,
+            List<SavedSearchResponse> personalizationSignals) {
         int candidateSize = Math.max((request.page() + 1) * request.size(), request.size() * 3);
         candidateSize = Math.max(candidateSize, 50);
         candidateSize = Math.min(candidateSize, maxCandidateWindow);
 
         PagedResponse<JobSearchResult> upstreamResponse = fetchUpstreamPage(request, 0, candidateSize, SearchRequest.DEFAULT_SORT);
         List<JobSearchResult> rankedContent = upstreamResponse.getContent().stream()
-            .sorted(rankingComparator(request))
+            .sorted(rankingComparator(request, personalizationSignals))
             .toList();
 
         return sliceResponse(rankedContent, upstreamResponse.getTotalElements(), request.page(), request.size());
@@ -322,7 +493,7 @@ public class SearchServiceImpl implements SearchService {
                     uri,
                     HttpMethod.GET,
                     HttpEntity.EMPTY,
-                    new ParameterizedTypeReference<>() {}
+                    new org.springframework.core.ParameterizedTypeReference<>() {}
                 );
 
                 if (response.getBody() == null) {
@@ -379,15 +550,20 @@ public class SearchServiceImpl implements SearchService {
             .toUri();
     }
 
-    private Comparator<JobSearchResult> rankingComparator(SearchRequest request) {
+    private Comparator<JobSearchResult> rankingComparator(
+            SearchRequest request,
+            List<SavedSearchResponse> personalizationSignals) {
         return Comparator
-            .comparingInt((JobSearchResult result) -> relevanceScore(result, request))
+            .comparingInt((JobSearchResult result) -> relevanceScore(result, request, personalizationSignals))
             .reversed()
             .thenComparing(JobSearchResult::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
             .thenComparing(JobSearchResult::getId, Comparator.nullsLast(Comparator.naturalOrder()));
     }
 
-    private int relevanceScore(JobSearchResult result, SearchRequest request) {
+    private int relevanceScore(
+            JobSearchResult result,
+            SearchRequest request,
+            List<SavedSearchResponse> personalizationSignals) {
         int score = 0;
         score += exactOrPartialScore(result.getTitle(), request.title(), 120, 80);
         score += exactOrPartialScore(result.getCompany(), request.company(), 90, 60);
@@ -399,8 +575,29 @@ public class SearchServiceImpl implements SearchService {
         if ("ACTIVE".equalsIgnoreCase(result.getStatus())) {
             score += 25;
         }
+        score += personalizationScore(result, personalizationSignals);
         score += recencyScore(result.getCreatedAt());
         return score;
+    }
+
+    private int personalizationScore(JobSearchResult result, List<SavedSearchResponse> savedSearches) {
+        if (savedSearches.isEmpty()) {
+            return 0;
+        }
+
+        int bestScore = 0;
+        for (SavedSearchResponse savedSearch : savedSearches) {
+            int score = 0;
+            score += exactOrPartialScore(result.getTitle(), savedSearch.getTitle(), 90, 60);
+            score += exactOrPartialScore(result.getCompany(), savedSearch.getCompany(), 70, 45);
+            score += exactOrPartialScore(result.getLocation(), savedSearch.getLocation(), 60, 35);
+            if (savedSearch.getEmploymentType() != null
+                    && savedSearch.getEmploymentType().equalsIgnoreCase(result.getEmploymentType())) {
+                score += 50;
+            }
+            bestScore = Math.max(bestScore, score);
+        }
+        return bestScore;
     }
 
     private int exactOrPartialScore(String candidate, String query, int exactScore, int partialScore) {
@@ -490,6 +687,165 @@ public class SearchServiceImpl implements SearchService {
             .limit(facetMaxValues)
             .map(entry -> new FacetValueCount(entry.getKey(), entry.getValue()))
             .toList();
+    }
+
+    private List<AutocompleteSuggestion> buildAutocompleteFallback(String query) {
+        SearchRequest request = new SearchRequest(
+            query,
+            null,
+            null,
+            null,
+            null,
+            null,
+            DEFAULT_STATUS,
+            0,
+            Math.min(autocompleteLimit, maxCandidateWindow),
+            SearchRequest.DEFAULT_SORT
+        );
+
+        List<JobSearchResult> content = fetchUpstreamPage(
+            request,
+            0,
+            Math.min(autocompleteLimit, maxCandidateWindow),
+            SearchRequest.DEFAULT_SORT
+        ).getContent();
+
+        LinkedHashMap<String, AutocompleteSuggestion> suggestions = new LinkedHashMap<>();
+        for (JobSearchResult result : content) {
+            addSuggestion(suggestions, result.getTitle(), "TITLE", query);
+            addSuggestion(suggestions, result.getCompany(), "COMPANY", query);
+            addSuggestion(suggestions, result.getLocation(), "LOCATION", query);
+            if (suggestions.size() >= autocompleteLimit) {
+                break;
+            }
+        }
+        return new ArrayList<>(suggestions.values());
+    }
+
+    private void addSuggestion(
+            Map<String, AutocompleteSuggestion> suggestions,
+            String value,
+            String type,
+            String query) {
+        String normalizedValue = normalizeText(value);
+        if (normalizedValue == null
+                || !normalizedValue.toLowerCase(Locale.ROOT).contains(query.toLowerCase(Locale.ROOT))) {
+            return;
+        }
+
+        suggestions.compute(normalizedValue + "|" + type, (key, existing) -> {
+            if (existing == null) {
+                return new AutocompleteSuggestion(normalizedValue, type, 1);
+            }
+            existing.setCount(existing.getCount() + 1);
+            return existing;
+        });
+    }
+
+    private List<String> buildRelatedSearches(SearchRequest request) {
+        LinkedHashSet<String> related = new LinkedHashSet<>();
+
+        String seedQuery = firstNonNull(request.title(), request.company(), request.location());
+        if (seedQuery != null) {
+            List<AutocompleteSuggestion> suggestions = getJobAutocomplete(seedQuery).getSuggestions();
+            for (AutocompleteSuggestion suggestion : suggestions) {
+                if (!suggestion.getValue().equalsIgnoreCase(seedQuery)) {
+                    related.add(suggestion.getValue());
+                }
+                if (related.size() >= relatedSearchLimit) {
+                    break;
+                }
+            }
+        }
+
+        if (related.size() < relatedSearchLimit) {
+            JobSearchFacetsResponse facets = facetsViaIndexOrFallback(request);
+            addFacetRelated(related, facets.getLocations());
+            addFacetRelated(related, facets.getCompanies());
+        }
+
+        return related.stream()
+            .limit(relatedSearchLimit)
+            .toList();
+    }
+
+    private void addFacetRelated(LinkedHashSet<String> related, List<FacetValueCount> values) {
+        for (FacetValueCount value : values) {
+            related.add(value.getValue());
+            if (related.size() >= relatedSearchLimit) {
+                return;
+            }
+        }
+    }
+
+    private List<SavedSearchResponse> loadPersonalizationSignals(String userId) {
+        String normalizedUserId = normalizeText(userId);
+        if (normalizedUserId == null) {
+            return List.of();
+        }
+        return savedSearchRepository.findByUserId(normalizedUserId);
+    }
+
+    private void recordZeroResult(String userId, String sessionId, SearchRequest request) {
+        try {
+            searchAnalyticsRepository.recordZeroResult(normalizeText(userId), normalizeText(sessionId), request);
+        } catch (DataAccessException ex) {
+            meterRegistry.counter("search.analytics.failures", "type", "zero_result").increment();
+        }
+    }
+
+    private String requireUserId(String userId) {
+        String normalizedUserId = normalizeText(userId);
+        if (normalizedUserId == null) {
+            throw new SearchServiceException(
+                "SEARCH_AUTH_REQUIRED",
+                "A search user id is required for this operation",
+                401
+            );
+        }
+        return normalizedUserId;
+    }
+
+    private String resolveSavedSearchName(
+            String name,
+            String title,
+            String location,
+            String employmentType) {
+        String normalizedName = normalizeText(name);
+        if (normalizedName != null) {
+            return normalizedName;
+        }
+
+        List<String> parts = new ArrayList<>();
+        if (title != null) {
+            parts.add(title);
+        }
+        if (location != null) {
+            parts.add(location);
+        }
+        if (employmentType != null) {
+            parts.add(employmentType.replace('_', ' '));
+        }
+
+        if (parts.isEmpty()) {
+            return "Saved search";
+        }
+        return String.join(" · ", parts);
+    }
+
+    private boolean isIndexReady() {
+        SearchIndexStatusResponse status = searchIndexRepository.getStatus();
+        return status.isReady() && !status.isReindexInProgress();
+    }
+
+    private String firstNonNull(String... values) {
+        for (String value : values) {
+            String normalizedValue = normalizeText(value);
+            if (normalizedValue != null) {
+                return normalizedValue;
+            }
+        }
+        return null;
     }
 
     private <T> Optional<T> optional(T value) {
@@ -594,6 +950,14 @@ public class SearchServiceImpl implements SearchService {
             "SEARCH_INVALID_REQUEST",
             message,
             400
+        );
+    }
+
+    private SearchServiceException notFound(String message) {
+        return new SearchServiceException(
+            "SEARCH_NOT_FOUND",
+            message,
+            404
         );
     }
 

@@ -33,6 +33,10 @@ search:
   facets:
     sample-size: ${SEARCH_FACETS_SAMPLE_SIZE:200}
     max-values: ${SEARCH_FACETS_MAX_VALUES:10}
+  autocomplete:
+    limit: ${SEARCH_AUTOCOMPLETE_LIMIT:8}
+  discovery:
+    related-limit: ${SEARCH_DISCOVERY_RELATED_LIMIT:6}
   resilience:
     retry:
       max-attempts: ${SEARCH_RETRY_MAX_ATTEMPTS:2}

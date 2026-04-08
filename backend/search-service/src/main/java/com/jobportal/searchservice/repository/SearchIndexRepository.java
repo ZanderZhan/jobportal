@@ -1,5 +1,6 @@
 package com.jobportal.searchservice.repository;
 
+import com.jobportal.searchservice.dto.AutocompleteSuggestion;
 import com.jobportal.searchservice.dto.JobSearchFacetsResponse;
 import com.jobportal.searchservice.dto.JobSearchResult;
 import com.jobportal.searchservice.dto.PagedResponse;
@@ -15,6 +16,8 @@ public interface SearchIndexRepository {
     PagedResponse<JobSearchResult> search(SearchRequest request);
 
     JobSearchFacetsResponse getFacets(SearchRequest request, int maxValues);
+
+    List<AutocompleteSuggestion> autocomplete(String query, int limit);
 
     void upsert(JobSearchResult job);
 

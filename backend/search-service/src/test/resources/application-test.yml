@@ -27,6 +27,10 @@ search:
   facets:
     sample-size: 200
     max-values: 10
+  autocomplete:
+    limit: 8
+  discovery:
+    related-limit: 6
   resilience:
     retry:
       max-attempts: 2

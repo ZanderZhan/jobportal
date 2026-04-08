@@ -1,12 +1,12 @@
 package com.jobportal.searchservice.repository;
 
+import com.jobportal.searchservice.dto.AutocompleteSuggestion;
 import com.jobportal.searchservice.dto.FacetValueCount;
 import com.jobportal.searchservice.dto.JobSearchFacetsResponse;
 import com.jobportal.searchservice.dto.JobSearchResult;
 import com.jobportal.searchservice.dto.PagedResponse;
 import com.jobportal.searchservice.dto.SearchIndexStatusResponse;
 import com.jobportal.searchservice.service.SearchRequest;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -89,6 +89,45 @@ public class JdbcSearchIndexRepository implements SearchIndexRepository {
         response.setCompanies(facetValues("company", request, maxValues));
         response.setEmploymentTypes(facetValues("employment_type", request, maxValues));
         return response;
+    }
+
+    @Override
+    public List<AutocompleteSuggestion> autocomplete(String query, int limit) {
+        return jdbcTemplate.query("""
+            SELECT value, type, count
+            FROM (
+                SELECT d.title AS value, 'TITLE' AS type, COUNT(*) AS count, 1 AS priority
+                FROM job_search_documents d
+                WHERE LOWER(d.title) LIKE :queryLike
+                GROUP BY d.title
+
+                UNION ALL
+
+                SELECT d.company AS value, 'COMPANY' AS type, COUNT(*) AS count, 2 AS priority
+                FROM job_search_documents d
+                WHERE LOWER(d.company) LIKE :queryLike
+                GROUP BY d.company
+
+                UNION ALL
+
+                SELECT d.location AS value, 'LOCATION' AS type, COUNT(*) AS count, 3 AS priority
+                FROM job_search_documents d
+                WHERE d.location IS NOT NULL
+                  AND LOWER(d.location) LIKE :queryLike
+                GROUP BY d.location
+            ) suggestions
+            ORDER BY priority ASC, count DESC, value ASC
+            LIMIT :limit
+            """,
+            new MapSqlParameterSource()
+                .addValue("queryLike", "%" + query.toLowerCase() + "%")
+                .addValue("limit", limit),
+            (rs, rowNum) -> new AutocompleteSuggestion(
+                rs.getString("value"),
+                rs.getString("type"),
+                rs.getLong("count")
+            )
+        );
     }
 
     @Override
