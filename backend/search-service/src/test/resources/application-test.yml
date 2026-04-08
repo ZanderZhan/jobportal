@@ -2,6 +2,10 @@ services:
   job-service:
     url: http://localhost:8081
 
+search:
+  pagination:
+    max-size: 100
+
 logging:
   level:
     root: WARN

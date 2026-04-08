@@ -24,7 +24,11 @@ FROM eclipse-temurin:25-jre
 WORKDIR /app
 
 # Create non-root user
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r appgroup \
+    && useradd -r -g appgroup appuser
 
 # Copy jar from build stage
 COPY --from=builder /app/build/libs/*.jar app.jar

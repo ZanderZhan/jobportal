@@ -9,6 +9,10 @@ services:
   job-service:
     url: ${JOB_SERVICE_URL:http://job-service:8081}
 
+search:
+  pagination:
+    max-size: ${SEARCH_PAGINATION_MAX_SIZE:100}
+
 management:
   endpoints:
     web:

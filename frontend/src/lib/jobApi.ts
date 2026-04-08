@@ -40,6 +40,7 @@ export interface PagedResponse<T> {
 }
 
 const JOB_API_PATH = '/api/jobs';
+const SEARCH_API_PATH = '/api/search/jobs';
 
 export async function getJobs(params: JobSearchParams = {}): Promise<PagedResponse<Job>> {
   const searchParams = new URLSearchParams();
@@ -66,7 +67,7 @@ export async function searchJobs(params: JobSearchParams = {}): Promise<PagedRes
   if (params.size !== undefined) searchParams.set('size', params.size.toString());
   if (params.sort) searchParams.set('sort', params.sort);
   
-  const response = await api.get(`${JOB_API_PATH}/search?${searchParams.toString()}`);
+  const response = await api.get(`${SEARCH_API_PATH}?${searchParams.toString()}`);
   return response.data;
 }
 

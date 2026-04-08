@@ -53,4 +53,19 @@ class RouteConfigTest {
             .anyMatch(route -> route.getId().equals("search-service"));
         assertThat(hasSearchRoute).isTrue();
     }
+
+    @Test
+    void shouldRouteApiSearchRequestsToSearchService() {
+        var routes = routeLocator.getRoutes().collectList().block();
+
+        assertThat(routes).isNotNull();
+
+        boolean hasSearchApiRoute = routes.stream()
+            .anyMatch(route ->
+                "search-service".equals(route.getId())
+                    && route.getPredicate() != null
+                    && route.getPredicate().toString().contains("/api/search/**")
+            );
+        assertThat(hasSearchApiRoute).isTrue();
+    }
 }

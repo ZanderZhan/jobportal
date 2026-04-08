@@ -47,7 +47,28 @@ Supported query parameters:
 - `size`
 - `sort`
 
-If `status` is omitted, the service defaults it to `ACTIVE`.
+Public contract for Milestone 1:
+
+- Frontend and other clients should use `/api/search/jobs` as the public job discovery endpoint.
+- `status` defaults to `ACTIVE` when omitted, so public search stays focused on active jobs unless a caller explicitly requests another status.
+- `page` defaults to `0`.
+- `size` defaults to `20`.
+- `sort` defaults to `createdAt,desc`.
+- `page`, `size`, and `sort` are passed through to the upstream search query as part of the stable boundary contract for this milestone.
+- Upstream communication failures are returned as `502 Bad Gateway` with a structured error body.
+
+Milestone 2 behavior:
+
+- Text filters are normalized by trimming leading and trailing whitespace, collapsing repeated internal whitespace, and dropping empty values.
+- `employmentType` and `status` are normalized case-insensitively before validation and forwarding.
+- Public search still defaults `status` to `ACTIVE` when it is omitted or blank.
+- `page` must be greater than or equal to `0`.
+- `size` must be greater than or equal to `1` and is capped at `100` by default.
+- `sort` must follow `field,direction`, where direction is `asc` or `desc`.
+- Supported sort fields are `title`, `company`, `location`, `employmentType`, `salaryMin`, `salaryMax`, `status`, `createdAt`, and `updatedAt`.
+- `salaryMin` and `salaryMax` must be greater than or equal to `0`, and `salaryMin` cannot be greater than `salaryMax`.
+- Invalid search input is returned as `400 Bad Request` with a structured error body.
+- Metrics are emitted for request count, request latency, and upstream error count through Micrometer/Actuator.
 
 ## Docker
 
