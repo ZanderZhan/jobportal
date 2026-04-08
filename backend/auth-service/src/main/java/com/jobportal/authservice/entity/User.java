@@ -30,7 +30,7 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private Role role = Role.JOB_SEEKER;
+    private Role role = Role.HIRING;
 
     @Column(name = "google_id", unique = true, length = 255)
     private String googleId;
