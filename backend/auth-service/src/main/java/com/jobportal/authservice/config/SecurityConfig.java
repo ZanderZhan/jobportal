@@ -1,6 +1,7 @@
 package com.jobportal.authservice.config;
 
 import com.jobportal.authservice.service.JwtService;
+import com.jobportal.authservice.service.TokenBlacklistService;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -30,9 +31,11 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtService jwtService;
+    private final TokenBlacklistService tokenBlacklistService;
 
-    public SecurityConfig(JwtService jwtService) {
+    public SecurityConfig(JwtService jwtService, TokenBlacklistService tokenBlacklistService) {
         this.jwtService = jwtService;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     @Bean
@@ -68,6 +71,14 @@ public class SecurityConfig {
                     try {
                         if (jwtService.hasValidKeys()) {
                             var claims = jwtService.validateAndGetClaims(token);
+                            String jti = claims.get(JwtService.CLAIM_JTI, String.class);
+
+                            // Check if token is blacklisted
+                            if (tokenBlacklistService.isBlacklisted(jti)) {
+                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token has been revoked");
+                                return;
+                            }
+
                             String userId = claims.getSubject();
                             String role = claims.get("role", String.class);
 

@@ -20,9 +20,10 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final TokenBlacklistService tokenBlacklistService;
 
-    @Value("${allowed-email-domain:}")
-    private String allowedEmailDomain;
+    @Value("${student-email-domain:studentmail.ul.ie}")
+    private String studentEmailDomain;
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@(.+)$");
     private static final Pattern STRONG_PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d).{8,}$");
@@ -31,23 +32,17 @@ public class AuthService {
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            RefreshTokenService refreshTokenService) {
+            RefreshTokenService refreshTokenService,
+            TokenBlacklistService tokenBlacklistService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     @Transactional
     public UserResponse register(RegisterRequest request) {
-        // Validate email domain if restriction is set
-        if (allowedEmailDomain != null && !allowedEmailDomain.isEmpty()) {
-            String emailDomain = extractEmailDomain(request.email());
-            if (!allowedEmailDomain.equalsIgnoreCase(emailDomain)) {
-                throw new AuthException("AUTH_EMAIL_DOMAIN_NOT_ALLOWED", "Email must be from " + allowedEmailDomain + " domain", 403);
-            }
-        }
-
         // Check if email already exists
         if (userRepository.existsByEmail(request.email())) {
             throw new AuthException("AUTH_EMAIL_EXISTS", "Email already registered", 409);
@@ -58,19 +53,8 @@ public class AuthService {
             throw new AuthException("AUTH_WEAK_PASSWORD", "Password must be at least 8 characters with at least one letter and one number", 400);
         }
 
-        // Determine role (default to JOB_SEEKER if not specified or invalid)
-        Role role = Role.JOB_SEEKER;
-        if (request.role() != null && !request.role().isBlank()) {
-            try {
-                role = Role.valueOf(request.role().toUpperCase());
-                // Prevent self-registration as ADMIN
-                if (role == Role.ADMIN) {
-                    role = Role.JOB_SEEKER;
-                }
-            } catch (IllegalArgumentException e) {
-                // Invalid role, use default
-            }
-        }
+        // Classify user by email domain
+        Role role = classifyUserByEmail(request.email());
 
         // Create user
         User user = new User();
@@ -127,9 +111,13 @@ public class AuthService {
     }
 
     @Transactional
-    public void logout(String refreshToken) {
+    public void logout(String refreshToken, String accessToken) {
         if (refreshToken != null && !refreshToken.isEmpty()) {
             refreshTokenService.revokeRefreshToken(refreshToken);
+        }
+        if (accessToken != null && !accessToken.isEmpty()) {
+            String jti = jwtService.getJtiFromToken(accessToken);
+            tokenBlacklistService.blacklistToken(jti);
         }
     }
 
@@ -150,7 +138,7 @@ public class AuthService {
         return new TokenResponse(
             accessToken,
             refreshToken,
-            jwtService.getAccessTokenExpiry(),
+            jwtService.getAccessTokenExpirySeconds(),
             UserResponse.fromEntity(user)
         );
     }
@@ -159,5 +147,13 @@ public class AuthService {
         int atIndex = email.lastIndexOf('@');
         if (atIndex == -1) return "";
         return email.substring(atIndex + 1);
+    }
+
+    private Role classifyUserByEmail(String email) {
+        String domain = extractEmailDomain(email).toLowerCase();
+        if (studentEmailDomain.equalsIgnoreCase(domain)) {
+            return Role.STUDENT;
+        }
+        return Role.HIRING;
     }
 }

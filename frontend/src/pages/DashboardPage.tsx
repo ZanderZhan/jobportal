@@ -33,6 +33,9 @@ export function DashboardPage() {
         <div className="dashboard-header-right">
           <div className="dashboard-user-info">
             <span className="role-badge">{user?.role?.replace('ROLE_', '').replace('_', ' ')}</span>
+            {user?.userType && (
+              <span className="role-badge role-badge--accent">{user.userType}</span>
+            )}
             <span className="dashboard-user-email">{user?.email}</span>
           </div>
           <button onClick={handleLogout} className="btn btn-ghost btn--sm">
