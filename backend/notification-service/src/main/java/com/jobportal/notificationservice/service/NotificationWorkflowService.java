@@ -70,17 +70,16 @@ public class NotificationWorkflowService {
     }
 
     public void markAllAsRead(Long recipientUserId) {
-        List<Notification> notifications = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientUserId);
-        Instant now = Instant.now();
-        notifications.forEach(notification -> {
-            notification.setRead(true);
-            notification.setReadAt(now);
-        });
+        notificationRepository.markAllReadForRecipient(recipientUserId, Instant.now());
     }
 
     public NotificationResponse retry(Long notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new NotificationNotFoundException(notificationId));
+
+        if (notification.getStatus() == NotificationStatus.DELIVERED) {
+            return toResponse(notification);
+        }
 
         attemptEmailDelivery(notification);
         return toResponse(notification);

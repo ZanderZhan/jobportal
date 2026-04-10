@@ -43,7 +43,9 @@ public class DomainEventConsumerService {
 
     @RabbitListener(queues = APPLICATION_STATUS_CHANGED_QUEUE)
     public void onApplicationStatusChanged(ApplicationStatusChangedEvent event) {
-        // The recipient lookup can be enriched later when application service exposes more data.
+        // TODO: recipientUserId should be the student's userId, not the applicationId.
+        //       Enrich ApplicationStatusChangedEvent with a studentId field once the
+        //       application-service exposes that data so the correct user is notified.
         notificationWorkflowService.handleEvent(new EventNotificationRequest(
                 "application-status-changed-" + event.applicationId() + "-" + event.newStatus(),
                 NotificationEventType.APPLICATION_STATUS_CHANGED,

@@ -18,7 +18,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(TemplateNotFoundException.class)
     ProblemDetail handleTemplateNotFound(TemplateNotFoundException ex) {
-        ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         problemDetail.setDetail(ex.getMessage());
         return problemDetail;
     }
