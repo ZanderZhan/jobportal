@@ -1,6 +1,5 @@
 import {
   startTransition,
-  useDeferredValue,
   useEffect,
   useRef,
   useState,
@@ -9,20 +8,14 @@ import { useSearchParams } from 'react-router-dom';
 import JobCard from '../../components/JobCard';
 import { useAuth } from '../../hooks/useAuth';
 import {
-  deleteSavedSearch,
   formatEmploymentType,
-  getJobAutocomplete,
-  getSavedSearches,
   getSearchDiscovery,
-  saveSearch,
   searchJobs,
   trackSearchAbandon,
   trackSearchClick,
-  type AutocompleteSuggestion,
   type FacetValueCount,
   type Job,
   type JobSearchParams,
-  type SavedSearch,
   type SearchDiscoveryResponse,
 } from '../../lib/jobApi';
 import './JobsPage.css';
@@ -40,6 +33,12 @@ interface ActiveSearchSession {
   clicked: boolean;
 }
 
+interface AppliedFilterChip {
+  key: 'title' | 'company' | 'location' | 'employmentType';
+  label: string;
+  value: string;
+}
+
 function buildSearchUrlParams(params: JobSearchParams) {
   const searchParams = new URLSearchParams();
   if (params.title) searchParams.set('title', params.title);
@@ -50,18 +49,131 @@ function buildSearchUrlParams(params: JobSearchParams) {
   return searchParams;
 }
 
-function buildSavedSearchSummary(savedSearch: SavedSearch) {
-  return [savedSearch.title, savedSearch.company, savedSearch.location]
-    .filter(Boolean)
-    .join(' · ');
-}
-
 function createSearchSessionId() {
   return globalThis.crypto?.randomUUID?.() ?? `search-${Date.now()}`;
 }
 
+function normalizeText(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? '';
+}
+
+function buildAppliedFilterChips(params: JobSearchParams): AppliedFilterChip[] {
+  const chips: AppliedFilterChip[] = [];
+
+  if (params.title) {
+    chips.push({ key: 'title', label: 'Title', value: params.title });
+  }
+
+  if (params.company) {
+    chips.push({ key: 'company', label: 'Company', value: params.company });
+  }
+
+  if (params.location) {
+    chips.push({ key: 'location', label: 'Location', value: params.location });
+  }
+
+  if (params.employmentType) {
+    chips.push({
+      key: 'employmentType',
+      label: 'Type',
+      value: formatEmploymentType(params.employmentType),
+    });
+  }
+
+  return chips;
+}
+
+function buildSearchHeading(params: JobSearchParams) {
+  if (params.title) {
+    return `Results for "${params.title}"`;
+  }
+
+  if (params.company && params.location) {
+    return `${params.company} roles in ${params.location}`;
+  }
+
+  if (params.company) {
+    return `Open roles at ${params.company}`;
+  }
+
+  if (params.location) {
+    return `Open roles in ${params.location}`;
+  }
+
+  if (params.employmentType) {
+    return `${formatEmploymentType(params.employmentType)} roles`;
+  }
+
+  return 'Explore active opportunities';
+}
+
+function buildSearchDescription(
+  params: JobSearchParams,
+  totalElements: number,
+) {
+  const parts: string[] = [];
+
+  if (params.title || params.company || params.location || params.employmentType) {
+    parts.push(`${totalElements} matching roles available now.`);
+  } else {
+    parts.push(`${totalElements} active roles ready to browse.`);
+  }
+
+  parts.push('Use related searches and suggested filters to tighten the shortlist faster.');
+
+  return parts.join(' ');
+}
+
+function buildJobInsights(job: Job, params: JobSearchParams) {
+  const insights: string[] = [];
+  const normalizedTitle = normalizeText(params.title);
+  const normalizedCompany = normalizeText(params.company);
+  const normalizedLocation = normalizeText(params.location);
+
+  if (
+    normalizedTitle &&
+    (normalizeText(job.title).includes(normalizedTitle) ||
+      normalizeText(job.description).includes(normalizedTitle))
+  ) {
+    insights.push('Title match');
+  }
+
+  if (
+    normalizedCompany &&
+    normalizeText(job.company).includes(normalizedCompany)
+  ) {
+    insights.push('Company match');
+  }
+
+  if (
+    normalizedLocation &&
+    normalizeText(job.location).includes(normalizedLocation)
+  ) {
+    insights.push('Location match');
+  }
+
+  if (
+    params.employmentType &&
+    job.employmentType &&
+    params.employmentType === job.employmentType
+  ) {
+    insights.push(formatEmploymentType(job.employmentType));
+  }
+
+  return insights.slice(0, 3);
+}
+
+function buildDescriptionPreview(description: string) {
+  const normalizedDescription = description.replace(/\s+/g, ' ').trim();
+  if (normalizedDescription.length <= 160) {
+    return normalizedDescription;
+  }
+
+  return `${normalizedDescription.slice(0, 157).trimEnd()}...`;
+}
+
 export default function JobsPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,17 +190,13 @@ export default function JobsPage() {
     suggestedCompanies: [],
     suggestedEmploymentTypes: [],
   });
-  const [autocomplete, setAutocomplete] = useState<AutocompleteSuggestion[]>([]);
-  const [showAutocomplete, setShowAutocomplete] = useState(false);
-  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
-  const [savingSearch, setSavingSearch] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const [searchTitle, setSearchTitle] = useState(searchParams.get('title') || '');
   const [searchCompany, setSearchCompany] = useState(searchParams.get('company') || '');
   const [searchLocation, setSearchLocation] = useState(searchParams.get('location') || '');
   const [employmentType, setEmploymentType] = useState(searchParams.get('employmentType') || '');
 
-  const deferredSearchTitle = useDeferredValue(searchTitle);
   const activeSearchRef = useRef<ActiveSearchSession | null>(null);
 
   const currentSearchParams: JobSearchParams = {
@@ -99,7 +207,9 @@ export default function JobsPage() {
     page: parseInt(searchParams.get('page') || '0', 10),
   };
 
-  const hasFilters = Boolean(searchTitle || searchCompany || searchLocation || employmentType);
+  const hasDraftFilters = Boolean(searchTitle || searchCompany || searchLocation || employmentType);
+  const appliedFilterChips = buildAppliedFilterChips(currentSearchParams);
+  const hasAppliedFilters = appliedFilterChips.length > 0;
 
   useEffect(() => {
     setSearchTitle(searchParams.get('title') || '');
@@ -110,38 +220,9 @@ export default function JobsPage() {
 
   useEffect(() => {
     let ignore = false;
-
-    const loadAutocomplete = async () => {
-      const query = deferredSearchTitle.trim();
-      if (query.length < 2) {
-        setAutocomplete([]);
-        return;
-      }
-
-      try {
-        const response = await getJobAutocomplete(query);
-        if (!ignore) {
-          setAutocomplete(response.suggestions);
-        }
-      } catch {
-        if (!ignore) {
-          setAutocomplete([]);
-        }
-      }
-    };
-
-    void loadAutocomplete();
-
-    return () => {
-      ignore = true;
-    };
-  }, [deferredSearchTitle]);
-
-  useEffect(() => {
-    let ignore = false;
-    const abortPreviousSession = activeSearchRef.current;
-    if (abortPreviousSession && !abortPreviousSession.clicked) {
-      void trackSearchAbandon(user?.id, abortPreviousSession.sessionId);
+    const previousSearch = activeSearchRef.current;
+    if (previousSearch && !previousSearch.clicked) {
+      void trackSearchAbandon(user?.id, previousSearch.sessionId);
     }
 
     const sessionId = createSearchSessionId();
@@ -152,23 +233,17 @@ export default function JobsPage() {
       setError(null);
 
       try {
-        const [response, discoveryResponse] = await Promise.all([
-          searchJobs(
-            {
-              ...currentSearchParams,
-              status: 'ACTIVE',
-              size: pagination.size,
-            },
-            {
-              userId: user?.id,
-              sessionId,
-            },
-          ),
-          getSearchDiscovery({
+        const response = await searchJobs(
+          {
             ...currentSearchParams,
             status: 'ACTIVE',
-          }),
-        ]);
+            size: pagination.size,
+          },
+          {
+            userId: user?.id,
+            sessionId,
+          },
+        );
 
         if (ignore) {
           return;
@@ -181,11 +256,32 @@ export default function JobsPage() {
           totalPages: response.totalPages,
           currentPage: response.number,
         }));
-        setDiscovery(discoveryResponse);
       } catch (err) {
         if (!ignore) {
           setError('Failed to load jobs. Please try again.');
           console.error('Error fetching jobs:', err);
+        }
+        return;
+      }
+
+      try {
+        const discoveryResponse = await getSearchDiscovery({
+          ...currentSearchParams,
+          status: 'ACTIVE',
+        });
+
+        if (!ignore) {
+          setDiscovery(discoveryResponse);
+        }
+      } catch (err) {
+        if (!ignore) {
+          setDiscovery({
+            relatedSearches: [],
+            suggestedLocations: [],
+            suggestedCompanies: [],
+            suggestedEmploymentTypes: [],
+          });
+          console.error('Error fetching search discovery:', err);
         }
       } finally {
         if (!ignore) {
@@ -199,35 +295,15 @@ export default function JobsPage() {
     return () => {
       ignore = true;
     };
-  }, [currentSearchParams.title, currentSearchParams.company, currentSearchParams.location, currentSearchParams.employmentType, currentSearchParams.page, pagination.size, user?.id]);
-
-  useEffect(() => {
-    let ignore = false;
-
-    const loadSavedSearches = async () => {
-      if (!isAuthenticated || !user?.id) {
-        setSavedSearches([]);
-        return;
-      }
-
-      try {
-        const response = await getSavedSearches(user.id);
-        if (!ignore) {
-          setSavedSearches(response);
-        }
-      } catch (err) {
-        if (!ignore) {
-          console.error('Error loading saved searches:', err);
-        }
-      }
-    };
-
-    void loadSavedSearches();
-
-    return () => {
-      ignore = true;
-    };
-  }, [isAuthenticated, user?.id]);
+  }, [
+    currentSearchParams.title,
+    currentSearchParams.company,
+    currentSearchParams.location,
+    currentSearchParams.employmentType,
+    currentSearchParams.page,
+    pagination.size,
+    user?.id,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -239,14 +315,14 @@ export default function JobsPage() {
   }, [user?.id]);
 
   const updateSearchParams = (params: JobSearchParams) => {
+    setShowMobileFilters(false);
     startTransition(() => {
       setSearchParams(buildSearchUrlParams(params));
     });
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowAutocomplete(false);
+  const handleSearch = (event: React.FormEvent) => {
+    event.preventDefault();
     updateSearchParams({
       title: searchTitle || undefined,
       company: searchCompany || undefined,
@@ -261,8 +337,30 @@ export default function JobsPage() {
     setSearchCompany('');
     setSearchLocation('');
     setEmploymentType('');
-    setAutocomplete([]);
     updateSearchParams({ page: 0 });
+  };
+
+  const handleClearAppliedFilter = (field: AppliedFilterChip['key']) => {
+    const nextParams: JobSearchParams = {
+      ...currentSearchParams,
+      page: 0,
+    };
+
+    if (field === 'title') {
+      setSearchTitle('');
+      nextParams.title = undefined;
+    } else if (field === 'company') {
+      setSearchCompany('');
+      nextParams.company = undefined;
+    } else if (field === 'location') {
+      setSearchLocation('');
+      nextParams.location = undefined;
+    } else {
+      setEmploymentType('');
+      nextParams.employmentType = undefined;
+    }
+
+    updateSearchParams(nextParams);
   };
 
   const handlePageChange = (page: number) => {
@@ -270,17 +368,6 @@ export default function JobsPage() {
       ...currentSearchParams,
       page,
     });
-  };
-
-  const handleAutocompleteSelect = (suggestion: AutocompleteSuggestion) => {
-    if (suggestion.type === 'COMPANY') {
-      setSearchCompany(suggestion.value);
-    } else if (suggestion.type === 'LOCATION') {
-      setSearchLocation(suggestion.value);
-    } else {
-      setSearchTitle(suggestion.value);
-    }
-    setShowAutocomplete(false);
   };
 
   const handleApplyRelatedSearch = (value: string) => {
@@ -292,68 +379,27 @@ export default function JobsPage() {
     });
   };
 
-  const handleApplyFacet = (field: 'company' | 'location' | 'employmentType', value: string) => {
+  const handleApplyFacet = (
+    field: 'company' | 'location' | 'employmentType',
+    value: string,
+  ) => {
+    const nextParams: JobSearchParams = {
+      ...currentSearchParams,
+      page: 0,
+    };
+
     if (field === 'company') {
       setSearchCompany(value);
+      nextParams.company = value;
     } else if (field === 'location') {
       setSearchLocation(value);
+      nextParams.location = value;
     } else {
       setEmploymentType(value);
+      nextParams.employmentType = value;
     }
 
-    updateSearchParams({
-      ...currentSearchParams,
-      [field]: value,
-      page: 0,
-    });
-  };
-
-  const handleSaveCurrentSearch = async () => {
-    if (!user?.id || !hasFilters) {
-      return;
-    }
-
-    setSavingSearch(true);
-    try {
-      const savedSearch = await saveSearch(user.id, {
-        title: searchTitle || undefined,
-        company: searchCompany || undefined,
-        location: searchLocation || undefined,
-        employmentType: employmentType || undefined,
-      });
-      setSavedSearches((prev) => [savedSearch, ...prev.filter((entry) => entry.id !== savedSearch.id)]);
-    } catch (err) {
-      console.error('Error saving search:', err);
-    } finally {
-      setSavingSearch(false);
-    }
-  };
-
-  const handleApplySavedSearch = (savedSearch: SavedSearch) => {
-    setSearchTitle(savedSearch.title || '');
-    setSearchCompany(savedSearch.company || '');
-    setSearchLocation(savedSearch.location || '');
-    setEmploymentType(savedSearch.employmentType || '');
-    updateSearchParams({
-      title: savedSearch.title || undefined,
-      company: savedSearch.company || undefined,
-      location: savedSearch.location || undefined,
-      employmentType: savedSearch.employmentType || undefined,
-      page: 0,
-    });
-  };
-
-  const handleDeleteSavedSearch = async (savedSearchId: number) => {
-    if (!user?.id) {
-      return;
-    }
-
-    try {
-      await deleteSavedSearch(user.id, savedSearchId);
-      setSavedSearches((prev) => prev.filter((savedSearch) => savedSearch.id !== savedSearchId));
-    } catch (err) {
-      console.error('Error deleting saved search:', err);
-    }
+    updateSearchParams(nextParams);
   };
 
   const handleJobClick = (job: Job) => {
@@ -377,8 +423,11 @@ export default function JobsPage() {
     }
 
     return (
-      <div className="product-section">
-        <h3>{title}</h3>
+      <section className="jobs-discovery-card solid-card">
+        <div className="jobs-discovery-card-header">
+          <p className="jobs-section-kicker">Suggested filters</p>
+          <h3>{title}</h3>
+        </div>
         <div className="filter-chip-list">
           {values.map((value) => (
             <button
@@ -392,7 +441,7 @@ export default function JobsPage() {
             </button>
           ))}
         </div>
-      </div>
+      </section>
     );
   };
 
@@ -400,200 +449,268 @@ export default function JobsPage() {
     <div className="jobs-page">
       <header className="jobs-header">
         <div className="jobs-header-content">
-          <h1>Find Your Next Opportunity</h1>
-          <p>Discover jobs that match your skills and career goals</p>
+          <div className="jobs-header-copy">
+            <p className="jobs-header-kicker">Search workspace</p>
+            <h1>Find roles with more direction</h1>
+            <p className="jobs-header-text">
+              Search with guided filters, related searches, and a clearer results
+              workspace that keeps the shortlist moving in the right direction.
+            </p>
+          </div>
+
+          <div className="jobs-header-stats">
+            <div className="jobs-header-stat">
+              <strong>{loading ? '...' : pagination.totalElements}</strong>
+              <span>active roles</span>
+            </div>
+            <div className="jobs-header-stat">
+              <strong>{discovery.relatedSearches.length}</strong>
+              <span>related paths</span>
+            </div>
+            <div className="jobs-header-stat">
+              <strong>{appliedFilterChips.length}</strong>
+              <span>active filters</span>
+            </div>
+          </div>
         </div>
       </header>
 
       <div className="jobs-container">
-        <aside className="jobs-filters">
-          <form onSubmit={handleSearch}>
-            <div className="filter-section">
-              <h3>Search</h3>
-              <div className="filter-group autocomplete-group">
-                <label htmlFor="search-title">Job Title</label>
-                <input
-                  id="search-title"
-                  type="text"
-                  placeholder="e.g., Software Engineer"
-                  value={searchTitle}
-                  onChange={(e) => {
-                    setSearchTitle(e.target.value);
-                    setShowAutocomplete(true);
-                  }}
-                  onFocus={() => setShowAutocomplete(true)}
-                  onBlur={() => {
-                    setTimeout(() => setShowAutocomplete(false), 120);
-                  }}
-                  className="input"
-                  autoComplete="off"
-                />
-                {showAutocomplete && autocomplete.length > 0 && (
-                  <div className="autocomplete-panel">
-                    {autocomplete.map((suggestion) => (
-                      <button
-                        key={`${suggestion.type}-${suggestion.value}`}
-                        type="button"
-                        className="autocomplete-option"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => handleAutocompleteSelect(suggestion)}
-                      >
-                        <span>{suggestion.value}</span>
-                        <small>{suggestion.type.toLowerCase()}</small>
-                      </button>
+        {showMobileFilters && (
+          <button
+            type="button"
+            className="jobs-filter-backdrop"
+            onClick={() => setShowMobileFilters(false)}
+            aria-label="Close filters panel"
+          />
+        )}
+
+        <aside className={`jobs-filters ${showMobileFilters ? 'is-open' : ''}`}>
+          <div className="jobs-filters-mobile-header">
+            <div>
+              <p className="jobs-section-kicker">Search controls</p>
+              <h2>Refine your search</h2>
+            </div>
+            <button
+              type="button"
+              className="jobs-filters-close"
+              onClick={() => setShowMobileFilters(false)}
+            >
+              Close
+            </button>
+          </div>
+
+          <section className="jobs-panel-card solid-card">
+            <div className="jobs-panel-heading">
+              <p className="jobs-section-kicker">Query</p>
+              <h2>Search inputs</h2>
+              <p>Start broad, then tighten the shortlist with structured filters.</p>
+            </div>
+
+            <form onSubmit={handleSearch}>
+              <div className="filter-section">
+                <div className="filter-group">
+                  <label htmlFor="search-title">Job Title</label>
+                  <input
+                    id="search-title"
+                    type="text"
+                    placeholder="e.g., Software Engineer"
+                    value={searchTitle}
+                    onChange={(event) => setSearchTitle(event.target.value)}
+                    className="input"
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div className="filter-group">
+                  <label htmlFor="search-company">Company</label>
+                  <input
+                    id="search-company"
+                    type="text"
+                    placeholder="e.g., Northwind"
+                    value={searchCompany}
+                    onChange={(event) => setSearchCompany(event.target.value)}
+                    className="input"
+                  />
+                </div>
+
+                <div className="filter-group">
+                  <label htmlFor="search-location">Location</label>
+                  <input
+                    id="search-location"
+                    type="text"
+                    placeholder="e.g., Dublin"
+                    value={searchLocation}
+                    onChange={(event) => setSearchLocation(event.target.value)}
+                    className="input"
+                  />
+                </div>
+              </div>
+
+              <div className="filter-section">
+                <div className="jobs-inline-heading">
+                  <h3>Primary filters</h3>
+                  <span>{hasDraftFilters ? 'Ready to apply' : 'Optional'}</span>
+                </div>
+
+                <div className="filter-group">
+                  <label htmlFor="employment-type">Employment Type</label>
+                  <select
+                    id="employment-type"
+                    value={employmentType}
+                    onChange={(event) => setEmploymentType(event.target.value)}
+                    className="input"
+                  >
+                    {EMPLOYMENT_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
                     ))}
-                  </div>
+                  </select>
+                </div>
+              </div>
+
+              <div className="filter-actions">
+                <button type="submit" className="btn btn-primary">
+                  Search Jobs
+                </button>
+                {hasDraftFilters && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={handleClearFilters}
+                  >
+                    Clear Filters
+                  </button>
                 )}
               </div>
-              <div className="filter-group">
-                <label htmlFor="search-company">Company</label>
-                <input
-                  id="search-company"
-                  type="text"
-                  placeholder="e.g., Northwind"
-                  value={searchCompany}
-                  onChange={(e) => setSearchCompany(e.target.value)}
-                  className="input"
-                />
-              </div>
-              <div className="filter-group">
-                <label htmlFor="search-location">Location</label>
-                <input
-                  id="search-location"
-                  type="text"
-                  placeholder="e.g., Dublin"
-                  value={searchLocation}
-                  onChange={(e) => setSearchLocation(e.target.value)}
-                  className="input"
-                />
-              </div>
-            </div>
-
-            <div className="filter-section">
-              <h3>Employment Type</h3>
-              <div className="filter-group">
-                <select
-                  value={employmentType}
-                  onChange={(e) => setEmploymentType(e.target.value)}
-                  className="input"
-                >
-                  {EMPLOYMENT_TYPES.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="filter-actions">
-              <button type="submit" className="btn btn-primary">
-                Search Jobs
-              </button>
-              {isAuthenticated && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  disabled={!hasFilters || savingSearch}
-                  onClick={handleSaveCurrentSearch}
-                >
-                  {savingSearch ? 'Saving...' : 'Save This Search'}
-                </button>
-              )}
-              {hasFilters && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={handleClearFilters}
-                >
-                  Clear Filters
-                </button>
-              )}
-            </div>
-          </form>
-
-          {isAuthenticated && savedSearches.length > 0 && (
-            <div className="product-section">
-              <h3>Saved Searches</h3>
-              <div className="saved-search-list">
-                {savedSearches.map((savedSearch) => (
-                  <div key={savedSearch.id} className="saved-search-card">
-                    <button
-                      type="button"
-                      className="saved-search-apply"
-                      onClick={() => handleApplySavedSearch(savedSearch)}
-                    >
-                      <span className="saved-search-name">{savedSearch.name}</span>
-                      <small>{buildSavedSearchSummary(savedSearch) || 'Saved filters'}</small>
-                    </button>
-                    <button
-                      type="button"
-                      className="saved-search-delete"
-                      onClick={() => handleDeleteSavedSearch(savedSearch.id)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {renderFacetButtons('Suggested Locations', discovery.suggestedLocations, (value) => handleApplyFacet('location', value))}
-          {renderFacetButtons('Suggested Companies', discovery.suggestedCompanies, (value) => handleApplyFacet('company', value))}
-          {renderFacetButtons(
-            'Suggested Types',
-            discovery.suggestedEmploymentTypes,
-            (value) => handleApplyFacet('employmentType', value),
-            formatEmploymentType,
-          )}
+            </form>
+          </section>
         </aside>
 
         <main className="jobs-main">
-          <div className="jobs-results-header">
-            <p className="jobs-count">
-              {loading ? 'Loading...' : `${pagination.totalElements} jobs found`}
-            </p>
-            {discovery.relatedSearches.length > 0 && (
-              <div className="related-searches">
-                {discovery.relatedSearches.map((relatedSearch) => (
+          <section className="jobs-results-intro solid-card">
+            <div className="jobs-results-summary">
+              <div className="jobs-results-copy">
+                <p className="jobs-section-kicker">Results overview</p>
+                <h2>{buildSearchHeading(currentSearchParams)}</h2>
+                <p>
+                  {loading
+                    ? 'Refreshing the search workspace...'
+                    : buildSearchDescription(currentSearchParams, pagination.totalElements)}
+                </p>
+              </div>
+
+              <div className="jobs-results-actions">
+                <button
+                  type="button"
+                  className="btn btn-ghost jobs-mobile-filter-toggle"
+                  onClick={() => setShowMobileFilters(true)}
+                >
+                  Filters
+                </button>
+                {hasAppliedFilters && (
                   <button
-                    key={relatedSearch}
                     type="button"
-                    className="related-search-chip"
-                    onClick={() => handleApplyRelatedSearch(relatedSearch)}
+                    className="btn btn-ghost"
+                    onClick={handleClearFilters}
                   >
-                    {relatedSearch}
+                    Reset Search
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {hasAppliedFilters && (
+              <div className="jobs-active-filters">
+                {appliedFilterChips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    className="jobs-active-filter"
+                    onClick={() => handleClearAppliedFilter(chip.key)}
+                  >
+                    <span>{chip.label}: {chip.value}</span>
+                    <strong>Remove</strong>
                   </button>
                 ))}
               </div>
             )}
-          </div>
+          </section>
+
+          {(discovery.relatedSearches.length > 0 ||
+            discovery.suggestedLocations.length > 0 ||
+            discovery.suggestedCompanies.length > 0 ||
+            discovery.suggestedEmploymentTypes.length > 0) && (
+            <section className="jobs-discovery-grid">
+              {discovery.relatedSearches.length > 0 && (
+                <section className="jobs-discovery-card solid-card">
+                  <div className="jobs-discovery-card-header">
+                    <p className="jobs-section-kicker">Related searches</p>
+                    <h3>Try a nearby search path</h3>
+                  </div>
+                  <div className="related-searches">
+                    {discovery.relatedSearches.map((relatedSearch) => (
+                      <button
+                        key={relatedSearch}
+                        type="button"
+                        className="related-search-chip"
+                        onClick={() => handleApplyRelatedSearch(relatedSearch)}
+                      >
+                        {relatedSearch}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {renderFacetButtons(
+                'Locations people usually pair with this query',
+                discovery.suggestedLocations,
+                (value) => handleApplyFacet('location', value),
+              )}
+              {renderFacetButtons(
+                'Companies that keep this search focused',
+                discovery.suggestedCompanies,
+                (value) => handleApplyFacet('company', value),
+              )}
+              {renderFacetButtons(
+                'Employment types worth checking next',
+                discovery.suggestedEmploymentTypes,
+                (value) => handleApplyFacet('employmentType', value),
+                formatEmploymentType,
+              )}
+            </section>
+          )}
 
           {error && (
-            <div className="jobs-error">
+            <div className="jobs-error solid-card">
               <p>{error}</p>
-              <button onClick={() => updateSearchParams({ ...currentSearchParams })} className="btn btn-secondary">
+              <button
+                type="button"
+                onClick={() => updateSearchParams({ ...currentSearchParams })}
+                className="btn btn-ghost"
+              >
                 Try Again
               </button>
             </div>
           )}
 
           {loading ? (
-            <div className="jobs-loading">
+            <div className="jobs-loading solid-card">
               <div className="spinner"></div>
               <p>Loading jobs...</p>
             </div>
           ) : jobs.length === 0 ? (
-            <div className="jobs-empty">
+            <div className="jobs-empty solid-card">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="11" cy="11" r="8"/>
                 <path d="m21 21-4.35-4.35"/>
               </svg>
               <h3>No jobs found</h3>
-              <p>Try one of the suggested filters or related searches to widen the results.</p>
-              {hasFilters && (
-                <button onClick={handleClearFilters} className="btn btn-primary">
+              <p>Try a related search or remove one filter at a time to widen the result set.</p>
+              {hasAppliedFilters && (
+                <button type="button" onClick={handleClearFilters} className="btn btn-primary">
                   Clear Filters
                 </button>
               )}
@@ -602,14 +719,21 @@ export default function JobsPage() {
             <>
               <div className="jobs-grid">
                 {jobs.map((job) => (
-                  <JobCard key={job.id} job={job} onClick={handleJobClick} />
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    onClick={handleJobClick}
+                    descriptionPreview={buildDescriptionPreview(job.description)}
+                    matchInsights={buildJobInsights(job, currentSearchParams)}
+                  />
                 ))}
               </div>
 
               {pagination.totalPages > 1 && (
                 <div className="jobs-pagination">
                   <button
-                    className="btn btn-secondary"
+                    type="button"
+                    className="btn btn-ghost"
                     disabled={pagination.currentPage === 0}
                     onClick={() => handlePageChange(pagination.currentPage - 1)}
                   >
@@ -619,7 +743,8 @@ export default function JobsPage() {
                     Page {pagination.currentPage + 1} of {pagination.totalPages}
                   </span>
                   <button
-                    className="btn btn-secondary"
+                    type="button"
+                    className="btn btn-ghost"
                     disabled={pagination.currentPage >= pagination.totalPages - 1}
                     onClick={() => handlePageChange(pagination.currentPage + 1)}
                   >
