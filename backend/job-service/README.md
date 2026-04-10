@@ -118,32 +118,46 @@ curl "http://localhost:8081/jobs?page=0&size=10&sort=createdAt,desc"
 - `SPRING_DATASOURCE_USERNAME` - Database username
 - `SPRING_DATASOURCE_PASSWORD` - Database password
 
-## Seeding Sample Data
+## Seeding Search Demo Data
 
-Use the `scripts/seed-jobs.sh` script to populate the database with 100 sample job postings:
+Use the curated demo seed to populate the database with a realistic search dataset that is large enough for UI, ranking, and filter validation.
 
 ```bash
 # Make executable (first time only)
 chmod +x scripts/seed-jobs.sh
 
-# Run against local service
+# Append the curated dataset
 ./scripts/seed-jobs.sh
+
+# Replace existing jobs and trigger a search-service reindex
+./scripts/seed-jobs.sh --replace --reindex
 ```
 
-The script generates varied job data including:
-- 20 different job titles (Software Engineer, Data Scientist, etc.)
-- 10 companies and locations
-- Random salary ranges ($50k-$200k)
-- Random employment types and requirements
+What the demo dataset covers:
+- overlapping frontend, backend, platform, security, data, product, QA, and support titles
+- repeated companies and locations for company, location, and relevance checks
+- `ACTIVE`, `DRAFT`, and `CLOSED` statuses
+- `FULL_TIME`, `PART_TIME`, `CONTRACT`, and `INTERNSHIP` employment types
+- `EUR`, `GBP`, and `USD` salary currencies
+- remote, hybrid, and on-site style locations encoded in the `location` field
+- salary ranges from internship-level to senior and staff-level compensation
 
-> **Note:** The Job Service must be running before executing the seed script.
+Files:
+- `scripts/search-demo-jobs.json` - the curated dataset
+- `scripts/search-demo-qa-checklist.md` - a lightweight manual QA guide for search validation
+
+> **Note:** The Job Service must be running before executing the seed script. If you use `--reindex`, `search-service` must also be running.
+>
+> **Team setup:** After pulling these files, each teammate must run `./scripts/seed-jobs.sh --replace --reindex` in `backend/job-service/` on their own machine if they want the same demo dataset locally. The seeded jobs are not stored in Git, only the seed assets and documentation are.
 
 ## Project Structure
 
 ```
 backend/job-service/
 ├── scripts/
-│   └── seed-jobs.sh        # Sample data seeding script
+│   ├── seed-jobs.sh                  # Demo data seeding script
+│   ├── search-demo-jobs.json         # Curated search demo dataset
+│   └── search-demo-qa-checklist.md   # Manual search QA checklist
 ├── src/
 │   ├── main/
 │   │   ├── java/com/jobportal/jobservice/
