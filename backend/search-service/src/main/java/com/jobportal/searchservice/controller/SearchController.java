@@ -50,8 +50,12 @@ public class SearchController {
             @RequestParam(required = false) String company,
             @RequestParam(required = false) String location,
             @RequestParam(required = false) String employmentType,
+            @RequestParam(required = false) String employmentTypes,
             @RequestParam(required = false) BigDecimal salaryMin,
             @RequestParam(required = false) BigDecimal salaryMax,
+            @RequestParam(required = false) String salaryCurrency,
+            @RequestParam(required = false) String workMode,
+            @RequestParam(required = false) Integer postedWithinDays,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -64,8 +68,12 @@ public class SearchController {
             company,
             location,
             employmentType,
+            employmentTypes,
             salaryMin,
             salaryMax,
+            salaryCurrency,
+            workMode,
+            postedWithinDays,
             status,
             page,
             size,
@@ -82,8 +90,12 @@ public class SearchController {
             @RequestParam(required = false) String company,
             @RequestParam(required = false) String location,
             @RequestParam(required = false) String employmentType,
+            @RequestParam(required = false) String employmentTypes,
             @RequestParam(required = false) BigDecimal salaryMin,
             @RequestParam(required = false) BigDecimal salaryMax,
+            @RequestParam(required = false) String salaryCurrency,
+            @RequestParam(required = false) String workMode,
+            @RequestParam(required = false) Integer postedWithinDays,
             @RequestParam(required = false) String status) {
 
         JobSearchFacetsResponse response = searchService.getJobSearchFacets(
@@ -91,8 +103,12 @@ public class SearchController {
             company,
             location,
             employmentType,
+            employmentTypes,
             salaryMin,
             salaryMax,
+            salaryCurrency,
+            workMode,
+            postedWithinDays,
             status
         );
 
@@ -113,16 +129,24 @@ public class SearchController {
             @RequestParam(required = false) String company,
             @RequestParam(required = false) String location,
             @RequestParam(required = false) String employmentType,
+            @RequestParam(required = false) String employmentTypes,
             @RequestParam(required = false) BigDecimal salaryMin,
             @RequestParam(required = false) BigDecimal salaryMax,
+            @RequestParam(required = false) String salaryCurrency,
+            @RequestParam(required = false) String workMode,
+            @RequestParam(required = false) Integer postedWithinDays,
             @RequestParam(required = false) String status) {
         return ResponseEntity.ok(searchService.getSearchDiscovery(
             title,
             company,
             location,
             employmentType,
+            employmentTypes,
             salaryMin,
             salaryMax,
+            salaryCurrency,
+            workMode,
+            postedWithinDays,
             status
         ));
     }

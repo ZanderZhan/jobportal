@@ -37,6 +37,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -127,6 +128,10 @@ class SearchServiceTest {
             null,
             null,
             null,
+            null,
+            null,
+            null,
+            null,
             0,
             20,
             "createdAt,desc"
@@ -166,6 +171,10 @@ class SearchServiceTest {
             null,
             null,
             null,
+            null,
+            null,
+            null,
+            null,
             0,
             20,
             "createdAt,desc"
@@ -175,6 +184,10 @@ class SearchServiceTest {
             null,
             "session-2",
             "Software Engineer",
+            null,
+            null,
+            null,
+            null,
             null,
             null,
             null,
@@ -210,6 +223,10 @@ class SearchServiceTest {
             null,
             "session-1",
             "Ghost Job",
+            null,
+            null,
+            null,
+            null,
             null,
             null,
             null,
@@ -252,6 +269,10 @@ class SearchServiceTest {
 
         SearchDiscoveryResponse response = searchService.getSearchDiscovery(
             "Engineer",
+            null,
+            null,
+            null,
+            null,
             null,
             null,
             null,
@@ -339,12 +360,62 @@ class SearchServiceTest {
             null,
             null,
             null,
+            null,
+            null,
+            null,
+            null,
             0,
             20,
             "title,asc"
         );
 
         assertEquals(1, actual.getTotalElements());
+    }
+
+    @Test
+    void searchJobs_ShouldNormalizeAndPassAdvancedFiltersToIndex() {
+        SearchIndexStatusResponse status = readyStatus();
+        PagedResponse<JobSearchResult> indexedResponse = new PagedResponse<>();
+        indexedResponse.setContent(List.of());
+        indexedResponse.setTotalElements(0);
+        indexedResponse.setSize(20);
+        indexedResponse.setNumber(0);
+        indexedResponse.setTotalPages(0);
+        indexedResponse.setFirst(true);
+        indexedResponse.setLast(true);
+
+        when(searchCacheManager.getSearch(any())).thenReturn(null);
+        when(searchIndexRepository.getStatus()).thenReturn(status);
+        when(searchIndexRepository.search(any())).thenReturn(indexedResponse);
+
+        searchService.searchJobs(
+            null,
+            "session-1",
+            null,
+            null,
+            null,
+            null,
+            " full-time , contract ",
+            new BigDecimal("50000"),
+            new BigDecimal("90000"),
+            "eur",
+            "remote",
+            30,
+            "active",
+            0,
+            20,
+            "createdAt,desc"
+        );
+
+        verify(searchIndexRepository).search(argThat(request ->
+            request.employmentTypes().equals(List.of("FULL_TIME", "CONTRACT"))
+                && new BigDecimal("50000").compareTo(request.salaryMin()) == 0
+                && new BigDecimal("90000").compareTo(request.salaryMax()) == 0
+                && "EUR".equals(request.salaryCurrency())
+                && "REMOTE".equals(request.workMode())
+                && Integer.valueOf(30).equals(request.postedWithinDays())
+                && "ACTIVE".equals(request.status())
+        ));
     }
 
     @Test
@@ -363,6 +434,10 @@ class SearchServiceTest {
         SearchServiceException exception = assertThrows(SearchServiceException.class, () -> searchService.searchJobs(
             null,
             "session-1",
+            null,
+            null,
+            null,
+            null,
             null,
             null,
             null,
@@ -390,8 +465,37 @@ class SearchServiceTest {
             null,
             null,
             null,
+            null,
+            null,
+            null,
+            null,
             0,
             0,
+            "createdAt,desc"
+        ));
+
+        assertEquals("SEARCH_INVALID_REQUEST", exception.getErrorCode());
+        verifyNoInteractions(searchIndexRepository);
+    }
+
+    @Test
+    void searchJobs_WhenPostedWindowIsInvalid_ShouldRejectBeforeCallingBackends() {
+        SearchServiceException exception = assertThrows(SearchServiceException.class, () -> searchService.searchJobs(
+            null,
+            "session-1",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            null,
+            0,
+            20,
             "createdAt,desc"
         ));
 
@@ -425,6 +529,7 @@ class SearchServiceTest {
         result.setStatus(status);
         result.setSalaryMin(new BigDecimal("50000"));
         result.setSalaryMax(new BigDecimal("70000"));
+        result.setSalaryCurrency("EUR");
         result.setCreatedAt(LocalDateTime.now().minusDays(daysOld));
         result.setUpdatedAt(LocalDateTime.now().minusDays(daysOld));
         return result;

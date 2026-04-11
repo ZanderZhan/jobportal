@@ -65,6 +65,6 @@ public class JdbcSearchAnalyticsRepository implements SearchAnalyticsRepository 
             .addValue("title", request.title())
             .addValue("company", request.company())
             .addValue("location", request.location())
-            .addValue("employmentType", request.employmentType());
+            .addValue("employmentType", request.primaryEmploymentType());
     }
 }

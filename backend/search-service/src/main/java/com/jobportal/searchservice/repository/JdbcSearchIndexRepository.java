@@ -27,9 +27,21 @@ public class JdbcSearchIndexRepository implements SearchIndexRepository {
         WHERE (:title IS NULL OR LOWER(d.title) LIKE :titleLike)
           AND (:company IS NULL OR LOWER(d.company) LIKE :companyLike)
           AND (:location IS NULL OR LOWER(d.location) LIKE :locationLike)
-          AND (:employmentType IS NULL OR d.employment_type = :employmentType)
+          AND (:employmentTypesEmpty = TRUE OR d.employment_type IN (:employmentTypes))
           AND (:salaryMin IS NULL OR d.salary_min >= :salaryMin)
           AND (:salaryMax IS NULL OR d.salary_max <= :salaryMax)
+          AND (:salaryCurrency IS NULL OR d.salary_currency = :salaryCurrency)
+          AND (:postedAfter IS NULL OR d.created_at >= :postedAfter)
+          AND (
+                :workMode IS NULL
+                OR (:workMode = 'REMOTE' AND LOWER(COALESCE(d.location, '')) LIKE '%remote%')
+                OR (:workMode = 'HYBRID' AND LOWER(COALESCE(d.location, '')) LIKE '%hybrid%')
+                OR (
+                    :workMode = 'ONSITE'
+                    AND LOWER(COALESCE(d.location, '')) NOT LIKE '%remote%'
+                    AND LOWER(COALESCE(d.location, '')) NOT LIKE '%hybrid%'
+                )
+          )
           AND (:status IS NULL OR d.status = :status)
         """;
 
@@ -325,9 +337,13 @@ public class JdbcSearchIndexRepository implements SearchIndexRepository {
             .addValue("location", request.location())
             .addValue("locationExact", lower(request.location()))
             .addValue("locationLike", likePattern(request.location()))
-            .addValue("employmentType", request.employmentType())
+            .addValue("employmentTypesEmpty", request.employmentTypes().isEmpty())
+            .addValue("employmentTypes", request.employmentTypes().isEmpty() ? List.of("UNUSED") : request.employmentTypes())
             .addValue("salaryMin", request.salaryMin())
             .addValue("salaryMax", request.salaryMax())
+            .addValue("salaryCurrency", request.salaryCurrency())
+            .addValue("postedAfter", request.postedAfter())
+            .addValue("workMode", request.workMode())
             .addValue("status", request.status());
     }
 

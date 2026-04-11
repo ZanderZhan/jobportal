@@ -22,8 +22,12 @@ public interface SearchService {
         String company,
         String location,
         String employmentType,
+        String employmentTypes,
         BigDecimal salaryMin,
         BigDecimal salaryMax,
+        String salaryCurrency,
+        String workMode,
+        Integer postedWithinDays,
         String status,
         int page,
         int size,
@@ -35,8 +39,12 @@ public interface SearchService {
         String company,
         String location,
         String employmentType,
+        String employmentTypes,
         BigDecimal salaryMin,
         BigDecimal salaryMax,
+        String salaryCurrency,
+        String workMode,
+        Integer postedWithinDays,
         String status
     );
 
@@ -47,8 +55,12 @@ public interface SearchService {
         String company,
         String location,
         String employmentType,
+        String employmentTypes,
         BigDecimal salaryMin,
         BigDecimal salaryMax,
+        String salaryCurrency,
+        String workMode,
+        Integer postedWithinDays,
         String status
     );
 

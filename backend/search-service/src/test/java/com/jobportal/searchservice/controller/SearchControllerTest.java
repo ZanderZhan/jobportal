@@ -81,7 +81,7 @@ class SearchControllerTest {
         response.setFirst(true);
         response.setLast(true);
 
-        when(searchService.searchJobs(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
+        when(searchService.searchJobs(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
             .thenReturn(response);
 
         mockMvc.perform(get("/api/search/jobs")
@@ -106,7 +106,7 @@ class SearchControllerTest {
         response.setFirst(true);
         response.setLast(true);
 
-        when(searchService.searchJobs(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
+        when(searchService.searchJobs(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
             .thenReturn(response);
 
         mockMvc.perform(get("/api/search/jobs").accept(MediaType.APPLICATION_JSON))
@@ -124,6 +124,10 @@ class SearchControllerTest {
             isNull(),
             isNull(),
             isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
             eq(0),
             eq(20),
             eq("createdAt,desc")
@@ -131,8 +135,52 @@ class SearchControllerTest {
     }
 
     @Test
+    void searchJobs_ShouldForwardAdvancedFilters() throws Exception {
+        PagedResponse<JobSearchResult> response = new PagedResponse<>();
+        response.setContent(List.of());
+        response.setTotalElements(0);
+        response.setTotalPages(0);
+        response.setSize(20);
+        response.setNumber(0);
+        response.setFirst(true);
+        response.setLast(true);
+
+        when(searchService.searchJobs(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
+            .thenReturn(response);
+
+        mockMvc.perform(get("/api/search/jobs")
+                .param("employmentTypes", "FULL_TIME,CONTRACT")
+                .param("salaryMin", "60000")
+                .param("salaryMax", "120000")
+                .param("salaryCurrency", "EUR")
+                .param("workMode", "REMOTE")
+                .param("postedWithinDays", "30")
+                .param("sort", "salaryMax,desc"))
+            .andExpect(status().isOk());
+
+        verify(searchService).searchJobs(
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            eq("FULL_TIME,CONTRACT"),
+            eq(new BigDecimal("60000")),
+            eq(new BigDecimal("120000")),
+            eq("EUR"),
+            eq("REMOTE"),
+            eq(30),
+            isNull(),
+            eq(0),
+            eq(20),
+            eq("salaryMax,desc")
+        );
+    }
+
+    @Test
     void searchJobs_WhenSearchServiceFails_ShouldReturnMappedError() throws Exception {
-        when(searchService.searchJobs(any(), any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
+        when(searchService.searchJobs(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
             .thenThrow(new SearchServiceException(
                 "SEARCH_UPSTREAM_FAILED",
                 "Failed to fetch search results from job-service",
@@ -153,7 +201,7 @@ class SearchControllerTest {
         response.setCompanies(List.of(new com.jobportal.searchservice.dto.FacetValueCount("Northwind", 2)));
         response.setEmploymentTypes(List.of(new com.jobportal.searchservice.dto.FacetValueCount("FULL_TIME", 2)));
 
-        when(searchService.getJobSearchFacets(any(), any(), any(), any(), any(), any(), any()))
+        when(searchService.getJobSearchFacets(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
             .thenReturn(response);
 
         mockMvc.perform(get("/api/search/jobs/facets").accept(MediaType.APPLICATION_JSON))
@@ -183,7 +231,7 @@ class SearchControllerTest {
         response.setRelatedSearches(List.of("Backend Engineer"));
         response.setSuggestedLocations(List.of(new com.jobportal.searchservice.dto.FacetValueCount("Remote", 2)));
 
-        when(searchService.getSearchDiscovery(any(), any(), any(), any(), any(), any(), any()))
+        when(searchService.getSearchDiscovery(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
             .thenReturn(response);
 
         mockMvc.perform(get("/api/search/jobs/discovery"))

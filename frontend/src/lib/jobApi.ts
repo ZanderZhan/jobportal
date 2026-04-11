@@ -21,8 +21,12 @@ export interface JobSearchParams {
   company?: string;
   location?: string;
   employmentType?: string;
+  employmentTypes?: string[];
   salaryMin?: number;
   salaryMax?: number;
+  salaryCurrency?: string;
+  workMode?: 'REMOTE' | 'HYBRID' | 'ONSITE';
+  postedWithinDays?: number;
   status?: string;
   page?: number;
   size?: number;
@@ -102,8 +106,14 @@ function buildSearchParams(params: JobSearchParams = {}) {
   if (params.company) searchParams.set('company', params.company);
   if (params.location) searchParams.set('location', params.location);
   if (params.employmentType) searchParams.set('employmentType', params.employmentType);
+  if (params.employmentTypes && params.employmentTypes.length > 0) {
+    searchParams.set('employmentTypes', params.employmentTypes.join(','));
+  }
   if (params.salaryMin !== undefined) searchParams.set('salaryMin', params.salaryMin.toString());
   if (params.salaryMax !== undefined) searchParams.set('salaryMax', params.salaryMax.toString());
+  if (params.salaryCurrency) searchParams.set('salaryCurrency', params.salaryCurrency);
+  if (params.workMode) searchParams.set('workMode', params.workMode);
+  if (params.postedWithinDays !== undefined) searchParams.set('postedWithinDays', params.postedWithinDays.toString());
   if (params.status) searchParams.set('status', params.status);
   if (params.page !== undefined) searchParams.set('page', params.page.toString());
   if (params.size !== undefined) searchParams.set('size', params.size.toString());

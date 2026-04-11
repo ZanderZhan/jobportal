@@ -61,6 +61,11 @@ public class SearchServiceImpl implements SearchService {
         "ACTIVE",
         "CLOSED"
     );
+    private static final Set<String> VALID_WORK_MODES = Set.of(
+        "REMOTE",
+        "HYBRID",
+        "ONSITE"
+    );
     private static final Set<String> VALID_SORT_FIELDS = Set.of(
         "title",
         "company",
@@ -139,8 +144,12 @@ public class SearchServiceImpl implements SearchService {
             String company,
             String location,
             String employmentType,
+            String employmentTypes,
             BigDecimal salaryMin,
             BigDecimal salaryMax,
+            String salaryCurrency,
+            String workMode,
+            Integer postedWithinDays,
             String status,
             int page,
             int size,
@@ -155,8 +164,12 @@ public class SearchServiceImpl implements SearchService {
                 company,
                 location,
                 employmentType,
+                employmentTypes,
                 salaryMin,
                 salaryMax,
+                salaryCurrency,
+                workMode,
+                postedWithinDays,
                 status,
                 page,
                 size,
@@ -211,8 +224,12 @@ public class SearchServiceImpl implements SearchService {
             String company,
             String location,
             String employmentType,
+            String employmentTypes,
             BigDecimal salaryMin,
             BigDecimal salaryMax,
+            String salaryCurrency,
+            String workMode,
+            Integer postedWithinDays,
             String status) {
 
         Timer.Sample sample = Timer.start(meterRegistry);
@@ -224,8 +241,12 @@ public class SearchServiceImpl implements SearchService {
                 company,
                 location,
                 employmentType,
+                employmentTypes,
                 salaryMin,
                 salaryMax,
+                salaryCurrency,
+                workMode,
+                postedWithinDays,
                 status,
                 0,
                 Math.min(facetSampleSize, maxCandidateWindow),
@@ -281,8 +302,12 @@ public class SearchServiceImpl implements SearchService {
             String company,
             String location,
             String employmentType,
+            String employmentTypes,
             BigDecimal salaryMin,
             BigDecimal salaryMax,
+            String salaryCurrency,
+            String workMode,
+            Integer postedWithinDays,
             String status) {
 
         SearchRequest request = normalizeRequest(
@@ -290,8 +315,12 @@ public class SearchServiceImpl implements SearchService {
             company,
             location,
             employmentType,
+            employmentTypes,
             salaryMin,
             salaryMax,
+            salaryCurrency,
+            workMode,
+            postedWithinDays,
             status,
             0,
             Math.min(facetSampleSize, maxCandidateWindow),
@@ -429,8 +458,12 @@ public class SearchServiceImpl implements SearchService {
             String company,
             String location,
             String employmentType,
+            String employmentTypes,
             BigDecimal salaryMin,
             BigDecimal salaryMax,
+            String salaryCurrency,
+            String workMode,
+            Integer postedWithinDays,
             String status,
             int page,
             int size,
@@ -439,25 +472,32 @@ public class SearchServiceImpl implements SearchService {
         String normalizedTitle = normalizeText(title);
         String normalizedCompany = normalizeText(company);
         String normalizedLocation = normalizeText(location);
-        String normalizedEmploymentType = normalizeEnumValue(employmentType);
+        List<String> normalizedEmploymentTypes = normalizeEmploymentTypes(employmentType, employmentTypes);
         String normalizedStatus = normalizeEnumValue(status);
         BigDecimal normalizedSalaryMin = normalizeSalary(salaryMin, "salaryMin");
         BigDecimal normalizedSalaryMax = normalizeSalary(salaryMax, "salaryMax");
+        String normalizedSalaryCurrency = normalizeCurrency(salaryCurrency);
+        String normalizedWorkMode = normalizeEnumValue(workMode);
+        Integer validatedPostedWithinDays = validatePostedWithinDays(postedWithinDays);
         int validatedPage = validatePage(page);
         int cappedSize = capPageSize(size);
         String validatedSort = normalizeSort(sort);
 
-        validateEnumValue("employmentType", normalizedEmploymentType, VALID_EMPLOYMENT_TYPES);
+        validateEnumValues("employmentTypes", normalizedEmploymentTypes, VALID_EMPLOYMENT_TYPES);
         validateEnumValue("status", normalizedStatus, VALID_STATUSES);
+        validateEnumValue("workMode", normalizedWorkMode, VALID_WORK_MODES);
         validateSalaryRange(normalizedSalaryMin, normalizedSalaryMax);
 
         return new SearchRequest(
             normalizedTitle,
             normalizedCompany,
             normalizedLocation,
-            normalizedEmploymentType,
+            normalizedEmploymentTypes,
             normalizedSalaryMin,
             normalizedSalaryMax,
+            normalizedSalaryCurrency,
+            normalizedWorkMode,
+            validatedPostedWithinDays,
             normalizedStatus == null ? DEFAULT_STATUS : normalizedStatus,
             validatedPage,
             cappedSize,
@@ -505,7 +545,7 @@ public class SearchServiceImpl implements SearchService {
                 }
 
                 recordUpstreamSuccess();
-                return response.getBody();
+                return applyFallbackFilters(response.getBody(), request, page, size);
             } catch (SearchServiceException ex) {
                 if (!isRetryable(ex) || attempt == attempts) {
                     recordUpstreamFailure(ex.getErrorCode());
@@ -538,7 +578,7 @@ public class SearchServiceImpl implements SearchService {
             .queryParamIfPresent("title", optional(request.title()))
             .queryParamIfPresent("company", optional(request.company()))
             .queryParamIfPresent("location", optional(request.location()))
-            .queryParamIfPresent("employmentType", optional(request.employmentType()))
+            .queryParamIfPresent("employmentType", optional(request.primaryEmploymentType()))
             .queryParamIfPresent("salaryMin", optional(request.salaryMin()))
             .queryParamIfPresent("salaryMax", optional(request.salaryMax()))
             .queryParam("status", request.status())
@@ -692,6 +732,9 @@ public class SearchServiceImpl implements SearchService {
     private List<AutocompleteSuggestion> buildAutocompleteFallback(String query) {
         SearchRequest request = new SearchRequest(
             query,
+            null,
+            null,
+            List.of(),
             null,
             null,
             null,
@@ -873,6 +916,41 @@ public class SearchServiceImpl implements SearchService {
             .toUpperCase(Locale.ROOT);
     }
 
+    private List<String> normalizeEmploymentTypes(String employmentType, String employmentTypes) {
+        LinkedHashSet<String> normalized = new LinkedHashSet<>();
+
+        String singleValue = normalizeEnumValue(employmentType);
+        if (singleValue != null) {
+            normalized.add(singleValue);
+        }
+
+        String normalizedList = normalizeText(employmentTypes);
+        if (normalizedList != null) {
+            for (String value : normalizedList.split(",")) {
+                String normalizedValue = normalizeEnumValue(value);
+                if (normalizedValue != null) {
+                    normalized.add(normalizedValue);
+                }
+            }
+        }
+
+        return List.copyOf(normalized);
+    }
+
+    private String normalizeCurrency(String currency) {
+        String normalized = normalizeText(currency);
+        if (normalized == null) {
+            return null;
+        }
+
+        String upperCaseCurrency = normalized.toUpperCase(Locale.ROOT);
+        if (!upperCaseCurrency.matches("[A-Z]{3}")) {
+            throw invalidRequest("salaryCurrency must be a 3-letter ISO currency code");
+        }
+
+        return upperCaseCurrency;
+    }
+
     private BigDecimal normalizeSalary(BigDecimal value, String fieldName) {
         if (value == null) {
             return null;
@@ -883,6 +961,22 @@ public class SearchServiceImpl implements SearchService {
         }
 
         return value;
+    }
+
+    private Integer validatePostedWithinDays(Integer postedWithinDays) {
+        if (postedWithinDays == null) {
+            return null;
+        }
+
+        if (postedWithinDays < 1) {
+            throw invalidRequest("postedWithinDays must be greater than or equal to 1");
+        }
+
+        if (postedWithinDays > 3650) {
+            throw invalidRequest("postedWithinDays must be less than or equal to 3650");
+        }
+
+        return postedWithinDays;
     }
 
     private int validatePage(int page) {
@@ -904,6 +998,12 @@ public class SearchServiceImpl implements SearchService {
     private void validateEnumValue(String fieldName, String value, Set<String> allowedValues) {
         if (value != null && !allowedValues.contains(value)) {
             throw invalidRequest(fieldName + " must be one of: " + String.join(", ", allowedValues));
+        }
+    }
+
+    private void validateEnumValues(String fieldName, List<String> values, Set<String> allowedValues) {
+        for (String value : values) {
+            validateEnumValue(fieldName, value, allowedValues);
         }
     }
 
@@ -1030,5 +1130,80 @@ public class SearchServiceImpl implements SearchService {
                 502
             );
         }
+    }
+
+    private PagedResponse<JobSearchResult> applyFallbackFilters(
+            PagedResponse<JobSearchResult> response,
+            SearchRequest request,
+            int page,
+            int size) {
+        if (!hasAdditionalFiltersForFallback(request)) {
+            return response;
+        }
+
+        List<JobSearchResult> filteredContent = response.getContent().stream()
+            .filter(result -> matchesAdvancedFilters(result, request))
+            .toList();
+
+        PagedResponse<JobSearchResult> filteredResponse = new PagedResponse<>();
+        filteredResponse.setContent(filteredContent);
+        filteredResponse.setTotalElements(filteredContent.size());
+        filteredResponse.setSize(size);
+        filteredResponse.setNumber(page);
+        filteredResponse.setTotalPages(filteredContent.isEmpty() ? 0 : 1);
+        filteredResponse.setFirst(page == 0);
+        filteredResponse.setLast(true);
+        return filteredResponse;
+    }
+
+    private boolean hasAdditionalFiltersForFallback(SearchRequest request) {
+        return request.salaryCurrency() != null
+            || request.workMode() != null
+            || request.postedWithinDays() != null
+            || request.employmentTypes().size() > 1;
+    }
+
+    private boolean matchesAdvancedFilters(JobSearchResult result, SearchRequest request) {
+        if (request.hasEmploymentTypeFilter()) {
+            String employmentType = normalizeEnumValue(result.getEmploymentType());
+            if (employmentType == null || !request.employmentTypes().contains(employmentType)) {
+                return false;
+            }
+        }
+
+        if (request.salaryCurrency() != null) {
+            String salaryCurrency = normalizeCurrency(result.getSalaryCurrency());
+            if (!request.salaryCurrency().equals(salaryCurrency)) {
+                return false;
+            }
+        }
+
+        if (request.postedAfter() != null) {
+            LocalDateTime createdAt = result.getCreatedAt();
+            if (createdAt == null || createdAt.isBefore(request.postedAfter())) {
+                return false;
+            }
+        }
+
+        if (request.workMode() != null && !matchesWorkMode(result.getLocation(), request.workMode())) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean matchesWorkMode(String location, String workMode) {
+        String normalizedLocation = normalizeText(location);
+        if (normalizedLocation == null) {
+            return false;
+        }
+
+        String lowerLocation = normalizedLocation.toLowerCase(Locale.ROOT);
+        return switch (workMode) {
+            case "REMOTE" -> lowerLocation.contains("remote");
+            case "HYBRID" -> lowerLocation.contains("hybrid");
+            case "ONSITE" -> !lowerLocation.contains("remote") && !lowerLocation.contains("hybrid");
+            default -> false;
+        };
     }
 }
