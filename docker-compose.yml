@@ -78,6 +78,7 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       JOB_SERVICE_URL: http://job-service:8081
       SEARCH_SERVICE_URL: http://search-service:8083
+      APPLICATION_SERVICE_URL: http://application-service:8084
       AUTH_SERVICE_URL: http://auth-service:8082
       CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost
       AUTH_JWK_SET_URI: http://auth-service:8082/.well-known/jwks.json
@@ -87,6 +88,8 @@ services:
       job-service:
         condition: service_healthy
       search-service:
+        condition: service_healthy
+      application-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
@@ -138,6 +141,28 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  application-service:
+    build:
+      context: ./backend/application-service
+      dockerfile: Dockerfile
+    container_name: application-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jobportal
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3

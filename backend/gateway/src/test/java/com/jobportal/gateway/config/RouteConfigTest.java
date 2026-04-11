@@ -68,4 +68,30 @@ class RouteConfigTest {
             );
         assertThat(hasSearchApiRoute).isTrue();
     }
+
+    @Test
+    void shouldHaveApplicationServiceRoute() {
+        var routes = routeLocator.getRoutes().collectList().block();
+
+        assertThat(routes).isNotNull();
+
+        boolean hasApplicationRoute = routes.stream()
+            .anyMatch(route -> route.getId().equals("application-service"));
+        assertThat(hasApplicationRoute).isTrue();
+    }
+
+    @Test
+    void shouldRouteApiApplicationsRequestsToApplicationService() {
+        var routes = routeLocator.getRoutes().collectList().block();
+
+        assertThat(routes).isNotNull();
+
+        boolean hasApplicationsApiRoute = routes.stream()
+            .anyMatch(route ->
+                "application-service".equals(route.getId())
+                    && route.getPredicate() != null
+                    && route.getPredicate().toString().contains("/api/applications/**")
+            );
+        assertThat(hasApplicationsApiRoute).isTrue();
+    }
 }

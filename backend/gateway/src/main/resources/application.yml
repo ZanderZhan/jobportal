@@ -31,6 +31,8 @@ services:
     url: ${AUTH_SERVICE_URL:http://localhost:8082}
   search-service:
     url: ${SEARCH_SERVICE_URL:http://localhost:8083}
+  application-service:
+    url: ${APPLICATION_SERVICE_URL:http://localhost:8084}
 
 management:
   endpoints:

@@ -18,6 +18,9 @@ public class RouteConfig {
     @Value("${services.search-service.url:http://localhost:8083}")
     private String searchServiceUrl;
 
+    @Value("${services.application-service.url:http://localhost:8084}")
+    private String applicationServiceUrl;
+
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
@@ -30,6 +33,9 @@ public class RouteConfig {
             .route("search-service", r -> r
                 .path("/api/search/**")
                 .uri(searchServiceUrl))
+            .route("application-service", r -> r
+                .path("/api/applications/**")
+                .uri(applicationServiceUrl))
             .build();
     }
 }
