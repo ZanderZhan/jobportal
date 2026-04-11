@@ -26,8 +26,9 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
-    public JobResponse createJob(JobRequest request) {
+    public JobResponse createJob(JobRequest request, String employerId) {
         Job job = mapRequestToEntity(request, new Job());
+        job.setEmployerId(employerId);
         Job savedJob = jobRepository.save(job);
         JobResponse response = JobResponse.fromEntity(savedJob);
         runAfterCommitOrImmediately(() -> searchIndexSyncService.upsertJob(response));
@@ -74,29 +75,30 @@ public class JobServiceImpl implements JobService {
     @Transactional(readOnly = true)
     public Page<JobResponse> searchJobs(JobSearchCriteria criteria, Pageable pageable) {
         return jobRepository.searchJobs(
-                criteria.getTitle(),
-                criteria.getCompany(),
-                criteria.getLocation(),
-                criteria.getEmploymentType(),
-                criteria.getSalaryMin(),
-                criteria.getSalaryMax(),
-                criteria.getStatus(),
+                criteria.title(),
+                criteria.company(),
+                criteria.location(),
+                criteria.employmentType(),
+                criteria.salaryMin(),
+                criteria.salaryMax(),
+                criteria.status(),
+                criteria.employerId(),
                 pageable
         ).map(JobResponse::fromEntity);
     }
 
     private Job mapRequestToEntity(JobRequest request, Job job) {
-        job.setTitle(request.getTitle());
-        job.setDescription(request.getDescription());
-        job.setCompany(request.getCompany());
-        job.setLocation(request.getLocation());
-        job.setEmploymentType(request.getEmploymentType());
-        job.setSalaryMin(request.getSalaryMin());
-        job.setSalaryMax(request.getSalaryMax());
-        job.setSalaryCurrency(request.getSalaryCurrency());
-        job.setRequirements(request.getRequirements());
-        if (request.getStatus() != null) {
-            job.setStatus(request.getStatus());
+        job.setTitle(request.title());
+        job.setDescription(request.description());
+        job.setCompany(request.company());
+        job.setLocation(request.location());
+        job.setEmploymentType(request.employmentType());
+        job.setSalaryMin(request.salaryMin());
+        job.setSalaryMax(request.salaryMax());
+        job.setSalaryCurrency(request.salaryCurrency());
+        job.setRequirements(request.requirements());
+        if (request.status() != null) {
+            job.setStatus(request.status());
         }
         return job;
     }

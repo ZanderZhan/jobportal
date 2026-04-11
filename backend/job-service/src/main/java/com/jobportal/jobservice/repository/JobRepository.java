@@ -32,7 +32,8 @@ public interface JobRepository extends JpaRepository<Job, Long>, JpaSpecificatio
            "(:employmentType IS NULL OR j.employmentType = :employmentType) AND " +
            "(:salaryMin IS NULL OR j.salaryMin >= :salaryMin) AND " +
            "(:salaryMax IS NULL OR j.salaryMax <= :salaryMax) AND " +
-           "(:status IS NULL OR j.status = :status)")
+           "(:status IS NULL OR j.status = :status) AND " +
+           "(:employerId IS NULL OR j.employerId = :employerId)")
     Page<Job> searchJobs(
             @Param("title") String title,
             @Param("company") String company,
@@ -41,6 +42,7 @@ public interface JobRepository extends JpaRepository<Job, Long>, JpaSpecificatio
             @Param("salaryMin") BigDecimal salaryMin,
             @Param("salaryMax") BigDecimal salaryMax,
             @Param("status") JobStatus status,
+            @Param("employerId") String employerId,
             Pageable pageable
     );
 

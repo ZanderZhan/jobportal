@@ -54,6 +54,9 @@ public class OAuthService {
     @Value("${allowed-email-domain:}")
     private String allowedEmailDomain;
 
+    @Value("${student-email-domain:studentmail.ul.ie}")
+    private String studentEmailDomain;
+
     public OAuthService(
             UserRepository userRepository,
             OAuthStateService oAuthStateService,
@@ -84,16 +87,12 @@ public class OAuthService {
             throw new AuthException("AUTH_OAUTH_STATE_INVALID", "Invalid or expired OAuth state", 400);
         }
 
-        // Use the redirect URI bound to the OAuth state and reject mismatches
-        String stateRedirectUri = stateData.redirectUri();
-        if (request.redirectUri() != null && !request.redirectUri().equals(stateRedirectUri)) {
-            throw new AuthException("AUTH_OAUTH_REDIRECT_URI_MISMATCH", "Invalid redirect URI for OAuth state", 400);
-        }
-
+        // For Google, use googleRedirectUri as the redirect_uri since it's the exact value
+        // that was used in the authorization request. Google requires exact match.
         Map<String, String> googleTokens = exchangeCode(
             request.code(),
             stateData.codeVerifier(),
-            stateRedirectUri,
+            googleRedirectUri,
             googleClientId,
             googleClientSecret,
             googleRedirectUri,
@@ -287,11 +286,21 @@ public class OAuthService {
         user.setName(name);
         user.setGoogleId(googleId);
         user.setMicrosoftId(microsoftId);
-        user.setRole(Role.JOB_SEEKER);
+        user.setRole(classifyUserByEmail(email));
         user.setEmailVerified(true);
         user.setEnabled(true);
 
         return userRepository.save(user);
+    }
+
+    private Role classifyUserByEmail(String email) {
+        int atIndex = email.lastIndexOf('@');
+        if (atIndex == -1) return Role.HIRING;
+        String domain = email.substring(atIndex + 1).toLowerCase();
+        if (studentEmailDomain.equalsIgnoreCase(domain)) {
+            return Role.STUDENT;
+        }
+        return Role.HIRING;
     }
 
     private TokenResponse createTokenResponse(User user, String userAgent, String ip) {
@@ -301,7 +310,7 @@ public class OAuthService {
         return new TokenResponse(
             accessToken,
             refreshToken,
-            jwtService.getAccessTokenExpiry(),
+            jwtService.getAccessTokenExpirySeconds(),
             UserResponse.fromEntity(user)
         );
     }

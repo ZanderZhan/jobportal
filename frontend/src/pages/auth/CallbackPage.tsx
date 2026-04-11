@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import '../../styles/auth-pages.css';
@@ -9,6 +9,7 @@ export function CallbackPage() {
   const navigate = useNavigate();
   const { handleOAuthCallback } = useAuth();
   const [asyncError, setAsyncError] = useState('');
+  const callbackAttempted = useRef(false);
 
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const code = params.get('code');
@@ -21,21 +22,29 @@ export function CallbackPage() {
     return '';
   }, [errorParam, code, state]);
 
+  // Detect provider from 'iss' parameter (Google returns iss=https://accounts.google.com)
+  const provider = useMemo(() => {
+    const iss = params.get('iss');
+    if (iss?.includes('google')) return 'google';
+    return 'microsoft';
+  }, [params]);
+
   const displayError = syncError || asyncError;
 
   useEffect(() => {
     if (syncError) return;
+    if (!code || !state) return;
+    if (callbackAttempted.current) return;
+    callbackAttempted.current = true;
 
-    const provider = location.pathname.includes('google') ? 'google' : 'microsoft';
-
-    handleOAuthCallback(provider, code!, state!)
+    handleOAuthCallback(provider, code, state)
       .then(() => navigate('/dashboard'))
       .catch((err: unknown) => {
         setAsyncError(
           (err as { message?: string })?.message || 'Authentication failed. Please try again.'
         );
       });
-  }, [location, handleOAuthCallback, navigate, syncError, code, state]);
+  }, [provider, handleOAuthCallback, navigate, syncError, code, state]);
 
   return (
     <div className="app-bg">

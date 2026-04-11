@@ -1,0 +1,65 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/jobportal
+    username: postgres
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.jobportal.authservice: DEBUG
+
+# OAuth providers (configure via env vars)
+google:
+  client:
+    id: ${GOOGLE_CLIENT_ID:-}
+    secret: ${GOOGLE_CLIENT_SECRET:-}
+    redirect-uri: ${GOOGLE_REDIRECT_URI:-http://localhost:8082/api/auth/google/callback}
+
+microsoft:
+  client:
+    id: ${MICROSOFT_CLIENT_ID:-}
+    secret: ${MICROSOFT_CLIENT_SECRET:-}
+    redirect-uri: ${MICROSOFT_REDIRECT_URI:-http://localhost:8082/api/auth/microsoft/callback}
+  tenant: ${MICROSOFT_TENANT_ID:-common}
+
+jwt:
+  private-key: ${JWT_PRIVATE_KEY:}
+  private-key-file: ${JWT_PRIVATE_KEY_FILE:}
+  public-key: ${JWT_PUBLIC_KEY:}
+  public-key-file: ${JWT_PUBLIC_KEY_FILE:}
+  access-token-expiry: 3600
+
+# allowed-email-domain: ${ALLOWED_EMAIL_DOMAIN:-}
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
