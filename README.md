@@ -1,40 +1,56 @@
 # Job Portal
 
-A full-stack job portal application that connects job seekers with employers. The platform enables users to browse job listings, apply for positions, and manage their career profiles.
+A full-stack job portal platform for students and employers. Users can browse and search jobs, apply for roles, manage applications, and maintain profiles.
 
 ## Features
 
-- 🔍 Browse and search job listings
-- 📝 Apply for positions
-- 👤 User profile management
-- 💼 Employer job posting management
+- Browse and search job listings
+- Employer job posting and management
+- Student application submission and tracking
+- Profile management
+- Gateway-based microservice backend
 
 ## Architecture
 
-This monorepo contains two main components:
+| Component | Stack | Notes |
+| --- | --- | --- |
+| Frontend | React 19, TypeScript, Vite | SPA UI |
+| Backend | Spring Boot (Java 25) microservices | Gateway + domain services |
+| Data & Infra | PostgreSQL, Redis, RabbitMQ, Docker Compose | Local dev stack |
 
-| Component | Tech Stack | Description |
-|-----------|------------|-------------|
-| **Frontend** | React 19, TypeScript, Vite | Modern SPA for user interface |
-| **Backend** | Spring Boot 4.0.2, Java 25 | RESTful API server |
+### Backend services
+
+- `gateway` (port 8080)
+- `job-service` (port 8081)
+- `auth-service` (port 8082)
+- `message-broker` (port 8083)
+- `application-service` (port 8084)
+- `profile-service` (port 8085)
+- `notification-service` (module present, not wired in compose)
 
 ## Requirements
 
-- **Backend**: Java 25, Gradle 8.x+
-- **Frontend**: Node.js 20+, npm 10+
+- Java 25
+- Node.js 20+ and npm 10+
+- Docker + Docker Compose (recommended for full stack)
 
 ## Getting Started
 
-### Backend
+### Option 1: Run full stack with Docker
+
+From repository root:
 
 ```bash
-cd backend
-./gradlew bootRun
+docker compose up -d --build
 ```
 
-The API server runs at `http://localhost:8080`
+Key URLs:
 
-### Frontend
+- Frontend: `http://localhost`
+- API Gateway: `http://localhost:8080`
+- RabbitMQ UI: `http://localhost:15672`
+
+### Option 2: Frontend only (against existing backend)
 
 ```bash
 cd frontend
@@ -42,41 +58,36 @@ npm install
 npm run dev
 ```
 
-The development server runs at `http://localhost:5173`
-
-## Project Structure
-
-```
-jobportal/
-├── backend/           # Spring Boot API
-│   ├── src/
-│   └── build.gradle.kts
-└── frontend/          # React SPA
-    ├── src/
-    └── package.json
-```
+Frontend dev server: `http://localhost:5173`
 
 ## Development
 
-### Running Both Services
-
-In separate terminals:
+### Backend testing
 
 ```bash
-# Terminal 1 - Backend
-cd backend && ./gradlew bootRun
-
-# Terminal 2 - Frontend
-cd frontend && npm run dev
+cd backend/job-service && ./gradlew test --no-daemon --console=plain
+cd backend/gateway && ./gradlew test --no-daemon --console=plain
 ```
 
-### Building for Production
+### Frontend checks
 
 ```bash
-# Backend
-cd backend && ./gradlew build
-
-# Frontend
+cd frontend && npm run lint
 cd frontend && npm run build
 ```
 
+## Project Structure
+
+```text
+jobportal/
+├── backend/
+│   ├── gateway/
+│   ├── job-service/
+│   ├── auth-service/
+│   ├── application-service/
+│   ├── profile-service/
+│   ├── message-broker/
+│   └── notification-service/
+├── frontend/
+└── docker-compose.yml
+```
