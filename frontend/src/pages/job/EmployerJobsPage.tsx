@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { isEmployerRole } from '../../lib/authRoles';
 import {
   type Job,
   searchJobs,
@@ -22,11 +23,13 @@ export function EmployerJobsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const isEmployer = isEmployerRole(user?.role, user?.userType);
+
   useEffect(() => {
-    if (isAuthenticated && user?.role === 'EMPLOYER') {
+    if (isAuthenticated && isEmployer) {
       fetchJobs();
     }
-  }, [isAuthenticated, user, page, statusFilter]);
+  }, [isAuthenticated, isEmployer, page, statusFilter]);
 
   const fetchJobs = async () => {
     try {
@@ -87,7 +90,7 @@ export function EmployerJobsPage() {
     );
   }
 
-  if (!isAuthenticated || user?.role !== 'EMPLOYER') {
+  if (!isAuthenticated || !isEmployer) {
     return (
       <div className="employer-jobs-page">
         <div className="access-denied">

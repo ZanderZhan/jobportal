@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { isEmployerRole } from '../../lib/authRoles';
 import {
   type JobRequest,
   getJobById,
@@ -31,6 +32,7 @@ export function JobFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const isEmployer = isEmployerRole(user?.role, user?.userType);
   const isEditMode = !!id;
   const requirementCounter = useRef(0);
 
@@ -142,7 +144,7 @@ export function JobFormPage() {
     );
   }
 
-  if (!isAuthenticated || user?.role !== 'EMPLOYER') {
+  if (!isAuthenticated || !isEmployer) {
     return (
       <div className="job-form-page">
         <div className="access-denied">

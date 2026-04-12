@@ -9,6 +9,7 @@ import JobsPage from './pages/job/JobsPage';
 import JobDetailPage from './pages/job/JobDetailPage';
 import { EmployerJobsPage } from './pages/job/EmployerJobsPage';
 import { JobFormPage } from './pages/job/JobFormPage';
+import { MyApplicationsPage } from './pages/application/MyApplicationsPage';
 
 function App() {
   return (
@@ -28,6 +29,14 @@ function App() {
           />
           <Route path="/jobs" element={<JobsPage />} />
           <Route path="/jobs/:id" element={<JobDetailPage />} />
+          <Route
+            path="/applications"
+            element={
+              <ProtectedRoute>
+                <MyApplicationsPage />
+              </ProtectedRoute>
+            }
+          />
           {/* Employer routes */}
           <Route
             path="/employer/jobs"
