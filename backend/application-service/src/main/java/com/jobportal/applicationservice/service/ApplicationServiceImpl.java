@@ -3,6 +3,9 @@ package com.jobportal.applicationservice.service;
 import com.jobportal.applicationservice.dto.ApplicationCreateRequest;
 import com.jobportal.applicationservice.dto.ApplicationResponse;
 import com.jobportal.applicationservice.dto.ApplicationStatusUpdateRequest;
+import com.jobportal.applicationservice.event.ApplicationStatusUpdatedEvent;
+import com.jobportal.applicationservice.event.ApplicationSubmittedEvent;
+import com.jobportal.applicationservice.event.ApplicationWithdrawnEvent;
 import com.jobportal.applicationservice.entity.Application;
 import com.jobportal.applicationservice.entity.ApplicationStatus;
 import com.jobportal.applicationservice.exception.ApplicationServiceException;
@@ -10,7 +13,10 @@ import com.jobportal.applicationservice.repository.ApplicationRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -25,14 +31,17 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final ApplicationEligibilityService applicationEligibilityService;
     private final ApplicationStatusPolicyService applicationStatusPolicyService;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public ApplicationServiceImpl(
             ApplicationRepository applicationRepository,
             ApplicationEligibilityService applicationEligibilityService,
-            ApplicationStatusPolicyService applicationStatusPolicyService) {
+            ApplicationStatusPolicyService applicationStatusPolicyService,
+            ApplicationEventPublisher applicationEventPublisher) {
         this.applicationRepository = applicationRepository;
         this.applicationEligibilityService = applicationEligibilityService;
         this.applicationStatusPolicyService = applicationStatusPolicyService;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Override
@@ -58,6 +67,14 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         try {
             Application savedApplication = applicationRepository.save(application);
+            publishAfterCommit(() -> applicationEventPublisher.publishSubmitted(
+                    new ApplicationSubmittedEvent(
+                            savedApplication.getId(),
+                            savedApplication.getStudentId(),
+                            savedApplication.getJobId(),
+                            Instant.now()
+                    )
+            ));
             return ApplicationResponse.fromEntity(savedApplication);
         } catch (DataIntegrityViolationException ex) {
             if (!applicationRepository.existsByStudentIdAndJobId(normalizedStudentId, request.jobId())) {
@@ -108,6 +125,14 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         application.withdraw(normalizedStudentId, "Application withdrawn by student");
         Application savedApplication = applicationRepository.saveAndFlush(application);
+        publishAfterCommit(() -> applicationEventPublisher.publishWithdrawn(
+                new ApplicationWithdrawnEvent(
+                        savedApplication.getId(),
+                        savedApplication.getStudentId(),
+                        savedApplication.getJobId(),
+                        Instant.now()
+                )
+        ));
         return ApplicationResponse.fromEntity(savedApplication);
     }
 
@@ -146,12 +171,24 @@ public class ApplicationServiceImpl implements ApplicationService {
             );
         }
 
+        ApplicationStatus previousStatus = application.getStatus();
         application.updateStatus(
                 request.status(),
                 normalizedEmployerId,
-                buildEmployerReason(application.getStatus(), request.status(), request.reason())
+                buildEmployerReason(previousStatus, request.status(), request.reason())
         );
         Application savedApplication = applicationRepository.saveAndFlush(application);
+        publishAfterCommit(() -> applicationEventPublisher.publishStatusUpdated(
+                new ApplicationStatusUpdatedEvent(
+                        savedApplication.getId(),
+                        savedApplication.getStudentId(),
+                        normalizedEmployerId,
+                        savedApplication.getJobId(),
+                        previousStatus.name(),
+                        savedApplication.getStatus().name(),
+                        Instant.now()
+                )
+        ));
         return ApplicationResponse.fromEntity(savedApplication);
     }
 
@@ -214,6 +251,20 @@ public class ApplicationServiceImpl implements ApplicationService {
             return normalizedReason;
         }
         return "Status updated from " + currentStatus + " to " + nextStatus;
+    }
+
+    private void publishAfterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+            return;
+        }
+
+        action.run();
     }
 
     private String normalize(String value) {

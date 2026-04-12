@@ -158,8 +158,14 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jobportal
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: jobportal
+      SPRING_RABBITMQ_PASSWORD: jobportal
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]

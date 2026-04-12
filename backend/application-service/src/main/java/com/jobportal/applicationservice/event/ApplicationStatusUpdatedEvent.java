@@ -1,9 +1,8 @@
-package com.jobportal.messagebroker.contract;
+package com.jobportal.applicationservice.event;
 
 import java.time.Instant;
 
-// Sent when an employer or the system moves an application to a new state.
-public record ApplicationStatusChangedEvent(
+public record ApplicationStatusUpdatedEvent(
         Long applicationId,
         String studentId,
         String employerId,

@@ -36,6 +36,9 @@ class ApplicationServiceTest {
     @Mock
     private ApplicationStatusPolicyService applicationStatusPolicyService;
 
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+
     private ApplicationServiceImpl applicationService;
 
     @BeforeEach
@@ -43,7 +46,8 @@ class ApplicationServiceTest {
         applicationService = new ApplicationServiceImpl(
                 applicationRepository,
                 applicationEligibilityService,
-                applicationStatusPolicyService
+                applicationStatusPolicyService,
+                applicationEventPublisher
         );
     }
 
@@ -66,6 +70,7 @@ class ApplicationServiceTest {
         assertEquals("Application submitted", response.timeline().get(0).reason());
         assertNotNull(response.submittedAt());
         verify(applicationRepository).save(any());
+        verify(applicationEventPublisher).publishSubmitted(any());
     }
 
     @Test
@@ -79,6 +84,7 @@ class ApplicationServiceTest {
 
         assertEquals("APPLICATION_FORBIDDEN", ex.getErrorCode());
         assertEquals(403, ex.getHttpStatus());
+        verify(applicationEventPublisher, never()).publishSubmitted(any());
     }
 
     @Test
@@ -93,6 +99,7 @@ class ApplicationServiceTest {
 
         assertEquals("APPLICATION_DUPLICATE", ex.getErrorCode());
         assertEquals(409, ex.getHttpStatus());
+        verify(applicationEventPublisher, never()).publishSubmitted(any());
     }
 
     @Test
@@ -112,6 +119,7 @@ class ApplicationServiceTest {
 
         assertEquals("APPLICATION_PERSISTENCE_FAILED", ex.getErrorCode());
         assertEquals(500, ex.getHttpStatus());
+        verify(applicationEventPublisher, never()).publishSubmitted(any());
     }
 
     @Test
@@ -178,6 +186,7 @@ class ApplicationServiceTest {
         assertEquals(2, response.timeline().size());
         assertEquals("Application withdrawn by student", response.timeline().get(1).reason());
         verify(applicationRepository).saveAndFlush(any());
+        verify(applicationEventPublisher).publishWithdrawn(any());
     }
 
     @Test
@@ -202,6 +211,7 @@ class ApplicationServiceTest {
 
         assertEquals("APPLICATION_WITHDRAWAL_NOT_ALLOWED", ex.getErrorCode());
         assertEquals(409, ex.getHttpStatus());
+        verify(applicationEventPublisher, never()).publishWithdrawn(any());
     }
 
     @Test
@@ -266,6 +276,7 @@ class ApplicationServiceTest {
         assertEquals(2, response.timeline().size());
         assertEquals("Initial screening started", response.timeline().get(1).reason());
         verify(applicationRepository).saveAndFlush(any());
+        verify(applicationEventPublisher).publishStatusUpdated(any());
     }
 
     @Test
@@ -297,5 +308,6 @@ class ApplicationServiceTest {
 
         assertEquals("APPLICATION_INVALID_STATUS_TRANSITION", ex.getErrorCode());
         assertEquals(409, ex.getHttpStatus());
+        verify(applicationEventPublisher, never()).publishStatusUpdated(any());
     }
 }

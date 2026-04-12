@@ -17,6 +17,8 @@ import java.nio.charset.StandardCharsets;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,7 +33,11 @@ class ApplicationEligibilityServiceTest {
     void setUp() {
         applicationEligibilityService = new ApplicationEligibilityServiceImpl(
                 restTemplate,
-                "http://job-service:8081"
+                "http://job-service:8081",
+                2,
+                0,
+                2,
+                1
         );
     }
 
@@ -119,5 +125,49 @@ class ApplicationEligibilityServiceTest {
 
         assertEquals("APPLICATION_FORBIDDEN", ex.getErrorCode());
         assertEquals(403, ex.getHttpStatus());
+    }
+
+    @Test
+    void getEligibleJob_WhenFirstAttemptFails_ShouldRetryAndReturnJob() {
+        when(restTemplate.getForEntity(
+                "http://job-service:8081/api/jobs/{id}",
+                JobDetailsResponse.class,
+                22L
+        ))
+                .thenThrow(new org.springframework.web.client.ResourceAccessException("timeout"))
+                .thenReturn(ResponseEntity.ok(new JobDetailsResponse(22L, "employer-4", "Data Engineer", "ACTIVE")));
+
+        JobEligibility eligibility = applicationEligibilityService.getEligibleJob(22L);
+
+        assertEquals(22L, eligibility.jobId());
+        assertEquals("employer-4", eligibility.employerId());
+        verify(restTemplate, times(2)).getForEntity(
+                "http://job-service:8081/api/jobs/{id}",
+                JobDetailsResponse.class,
+                22L
+        );
+    }
+
+    @Test
+    void getEligibleJob_WhenCircuitIsOpen_ShouldReturnServiceUnavailable() {
+        when(restTemplate.getForEntity(
+                "http://job-service:8081/api/jobs/{id}",
+                JobDetailsResponse.class,
+                27L
+        )).thenThrow(new org.springframework.web.client.ResourceAccessException("timeout"));
+
+        ApplicationServiceException firstFailure = assertThrows(
+                ApplicationServiceException.class,
+                () -> applicationEligibilityService.getEligibleJob(27L)
+        );
+        assertEquals("APPLICATION_UPSTREAM_FAILED", firstFailure.getErrorCode());
+
+        ApplicationServiceException circuitOpen = assertThrows(
+                ApplicationServiceException.class,
+                () -> applicationEligibilityService.getEligibleJob(27L)
+        );
+
+        assertEquals("APPLICATION_JOB_SERVICE_UNAVAILABLE", circuitOpen.getErrorCode());
+        assertEquals(503, circuitOpen.getHttpStatus());
     }
 }

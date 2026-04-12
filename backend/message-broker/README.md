@@ -6,6 +6,7 @@ This module provisions the RabbitMQ topology used by the Job Portal event-driven
 
 - `application.submitted` -> `ApplicationSubmittedEvent`
 - `application.status-changed` -> `ApplicationStatusChangedEvent`
+- `application.withdrawn` -> `ApplicationWithdrawnEvent`
 - `job.posted` -> `JobPostedEvent`
 - `auth.employer-verified` -> `EmployerVerifiedEvent`
 

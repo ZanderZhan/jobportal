@@ -2,8 +2,8 @@ package com.jobportal.messagebroker.contract;
 
 import java.time.Instant;
 
-// Sent after a student application is created successfully.
-public record ApplicationSubmittedEvent(
+// Sent after a student withdraws an application successfully.
+public record ApplicationWithdrawnEvent(
         Long applicationId,
         String studentId,
         Long jobId,

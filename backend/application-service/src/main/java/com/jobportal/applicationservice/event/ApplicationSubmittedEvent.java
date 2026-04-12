@@ -1,8 +1,7 @@
-package com.jobportal.messagebroker.contract;
+package com.jobportal.applicationservice.event;
 
 import java.time.Instant;
 
-// Sent after a student application is created successfully.
 public record ApplicationSubmittedEvent(
         Long applicationId,
         String studentId,
