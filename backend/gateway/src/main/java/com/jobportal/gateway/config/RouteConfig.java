@@ -15,9 +15,6 @@ public class RouteConfig {
     @Value("${services.auth-service.url:http://localhost:8082}")
     private String authServiceUrl;
 
-    @Value("${services.search-service.url:http://localhost:8083}")
-    private String searchServiceUrl;
-
     @Value("${services.application-service.url:http://localhost:8084}")
     private String applicationServiceUrl;
 
@@ -33,9 +30,6 @@ public class RouteConfig {
             .route("auth-service", r -> r
                 .path("/api/auth/**")
                 .uri(authServiceUrl))
-            .route("search-service", r -> r
-                .path("/api/search/**")
-                .uri(searchServiceUrl))
             .route("application-service", r -> r
                 .path("/api/applications/**")
                 .uri(applicationServiceUrl))

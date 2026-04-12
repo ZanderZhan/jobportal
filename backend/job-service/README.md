@@ -129,8 +129,8 @@ chmod +x scripts/seed-jobs.sh
 # Append the curated dataset
 ./scripts/seed-jobs.sh
 
-# Replace existing jobs and trigger a search-service reindex
-./scripts/seed-jobs.sh --replace --reindex
+# Replace existing jobs first
+./scripts/seed-jobs.sh --replace
 ```
 
 What the demo dataset covers:
@@ -146,9 +146,9 @@ Files:
 - `scripts/search-demo-jobs.json` - the curated dataset
 - `scripts/search-demo-qa-checklist.md` - a lightweight manual QA guide for search validation
 
-> **Note:** The Job Service must be running before executing the seed script. If you use `--reindex`, `search-service` must also be running.
+> **Note:** The Job Service must be running before executing the seed script.
 >
-> **Team setup:** After pulling these files, each teammate must run `./scripts/seed-jobs.sh --replace --reindex` in `backend/job-service/` on their own machine if they want the same demo dataset locally. The seeded jobs are not stored in Git, only the seed assets and documentation are.
+> **Team setup:** After pulling these files, each teammate should run `./scripts/seed-jobs.sh --replace` in `backend/job-service/` on their own machine if they want the same demo dataset locally. The seeded jobs are not stored in Git, only the seed assets and documentation are.
 
 ## Project Structure
 

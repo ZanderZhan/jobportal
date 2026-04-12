@@ -9,8 +9,6 @@ import com.jobportal.jobservice.repository.JobRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -18,11 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class JobServiceImpl implements JobService {
 
     private final JobRepository jobRepository;
-    private final SearchIndexSyncService searchIndexSyncService;
 
-    public JobServiceImpl(JobRepository jobRepository, SearchIndexSyncService searchIndexSyncService) {
+    public JobServiceImpl(JobRepository jobRepository) {
         this.jobRepository = jobRepository;
-        this.searchIndexSyncService = searchIndexSyncService;
     }
 
     @Override
@@ -30,9 +26,7 @@ public class JobServiceImpl implements JobService {
         Job job = mapRequestToEntity(request, new Job());
         job.setEmployerId(employerId);
         Job savedJob = jobRepository.save(job);
-        JobResponse response = JobResponse.fromEntity(savedJob);
-        runAfterCommitOrImmediately(() -> searchIndexSyncService.upsertJob(response));
-        return response;
+        return JobResponse.fromEntity(savedJob);
     }
 
     @Override
@@ -57,9 +51,7 @@ public class JobServiceImpl implements JobService {
 
         Job updatedJob = mapRequestToEntity(request, existingJob);
         Job savedJob = jobRepository.save(updatedJob);
-        JobResponse response = JobResponse.fromEntity(savedJob);
-        runAfterCommitOrImmediately(() -> searchIndexSyncService.upsertJob(response));
-        return response;
+        return JobResponse.fromEntity(savedJob);
     }
 
     @Override
@@ -68,7 +60,6 @@ public class JobServiceImpl implements JobService {
             throw new JobNotFoundException(id);
         }
         jobRepository.deleteById(id);
-        runAfterCommitOrImmediately(() -> searchIndexSyncService.deleteJob(id));
     }
 
     @Override
@@ -103,17 +94,4 @@ public class JobServiceImpl implements JobService {
         return job;
     }
 
-    private void runAfterCommitOrImmediately(Runnable task) {
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    task.run();
-                }
-            });
-            return;
-        }
-
-        task.run();
-    }
 }

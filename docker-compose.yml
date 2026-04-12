@@ -28,6 +28,45 @@ services:
       timeout: 5s
       retries: 5
 
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: jobportal-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: jobportal
+      RABBITMQ_DEFAULT_PASS: jobportal
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  message-broker:
+    build:
+      context: ./backend/message-broker
+      dockerfile: Dockerfile
+    container_name: message-broker
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: jobportal
+      SPRING_RABBITMQ_PASSWORD: jobportal
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   gateway:
     build:
       context: ./backend/gateway
@@ -38,7 +77,6 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       JOB_SERVICE_URL: http://job-service:8081
-      SEARCH_SERVICE_URL: http://search-service:8083
       APPLICATION_SERVICE_URL: http://application-service:8084
       PROFILE_SERVICE_URL: http://profile-service:8085
       AUTH_SERVICE_URL: http://auth-service:8082
@@ -48,8 +86,6 @@ services:
       auth-service:
         condition: service_healthy
       job-service:
-        condition: service_healthy
-      search-service:
         condition: service_healthy
       application-service:
         condition: service_healthy
@@ -74,37 +110,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jobportal
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
-      SEARCH_SERVICE_URL: http://search-service:8083
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  search-service:
-    build:
-      context: ./backend/search-service
-      dockerfile: Dockerfile
-    container_name: search-service
-    ports:
-      - "8083:8083"
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      JOB_SERVICE_URL: http://job-service:8081
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jobportal
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-    depends_on:
-      postgres:
-        condition: service_healthy
-      job-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3

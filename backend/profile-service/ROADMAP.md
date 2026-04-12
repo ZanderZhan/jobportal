@@ -27,7 +27,6 @@ Those remain in:
 - `auth-service`
 - `job-service`
 - `application-service`
-- `search-service`
 
 ## Current State
 
@@ -97,8 +96,6 @@ Milestone 3 is now in place:
 
 - `application-service`
   - may consume limited applicant profile projections later during employer review flows
-- `search-service`
-  - may consume employer branding or public profile metadata later
 - `notification-service`
   - may consume profile completion or profile update events later
 

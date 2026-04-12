@@ -1,7 +1,7 @@
 import {
   startTransition,
   useEffect,
-  useRef,
+  useMemo,
   useState,
 } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -9,18 +9,15 @@ import JobCard from '../../components/JobCard';
 import { useAuth } from '../../hooks/useAuth';
 import {
   formatEmploymentType,
-  getSearchDiscovery,
   searchJobs,
-  trackSearchAbandon,
-  trackSearchClick,
-  type FacetValueCount,
   type Job,
   type JobSearchParams,
-  type SearchDiscoveryResponse,
 } from '../../lib/jobApi';
 import './JobsPage.css';
 
 const DEFAULT_SORT = 'createdAt,desc';
+const CLIENT_SEARCH_PAGE_SIZE = 100;
+const CLIENT_SEARCH_MAX_PAGES = 50;
 
 const EMPLOYMENT_TYPES = [
   { value: 'FULL_TIME', label: 'Full Time' },
@@ -60,9 +57,31 @@ const SORT_OPTIONS = [
   { value: 'title,asc', label: 'Title A-Z' },
 ];
 
-interface ActiveSearchSession {
-  sessionId: string;
-  clicked: boolean;
+const DISCOVERY_WORD_STOPLIST = new Set([
+  'the',
+  'and',
+  'for',
+  'with',
+  'from',
+  'role',
+  'jobs',
+  'job',
+  'senior',
+  'junior',
+  'lead',
+  'manager',
+]);
+
+interface FacetValueCount {
+  value: string;
+  count: number;
+}
+
+interface SearchDiscoveryResponse {
+  relatedSearches: string[];
+  suggestedLocations: FacetValueCount[];
+  suggestedCompanies: FacetValueCount[];
+  suggestedEmploymentTypes: FacetValueCount[];
 }
 
 interface AppliedFilterChip {
@@ -100,29 +119,25 @@ function parseEmploymentTypesParam(value: string | null) {
 }
 
 function buildSearchUrlParams(params: JobSearchParams) {
-  const searchParams = new URLSearchParams();
+  const next = new URLSearchParams();
 
-  if (params.title) searchParams.set('title', params.title);
-  if (params.company) searchParams.set('company', params.company);
-  if (params.location) searchParams.set('location', params.location);
+  if (params.title) next.set('title', params.title);
+  if (params.company) next.set('company', params.company);
+  if (params.location) next.set('location', params.location);
   if (params.employmentTypes && params.employmentTypes.length > 0) {
-    searchParams.set('employmentTypes', params.employmentTypes.join(','));
+    next.set('employmentTypes', params.employmentTypes.join(','));
   } else if (params.employmentType) {
-    searchParams.set('employmentType', params.employmentType);
+    next.set('employmentType', params.employmentType);
   }
-  if (params.salaryMin !== undefined) searchParams.set('salaryMin', String(params.salaryMin));
-  if (params.salaryMax !== undefined) searchParams.set('salaryMax', String(params.salaryMax));
-  if (params.salaryCurrency) searchParams.set('salaryCurrency', params.salaryCurrency);
-  if (params.workMode) searchParams.set('workMode', params.workMode);
-  if (params.postedWithinDays !== undefined) searchParams.set('postedWithinDays', String(params.postedWithinDays));
-  if (params.sort && params.sort !== DEFAULT_SORT) searchParams.set('sort', params.sort);
-  searchParams.set('page', String(params.page ?? 0));
+  if (params.salaryMin !== undefined) next.set('salaryMin', String(params.salaryMin));
+  if (params.salaryMax !== undefined) next.set('salaryMax', String(params.salaryMax));
+  if (params.salaryCurrency) next.set('salaryCurrency', params.salaryCurrency);
+  if (params.workMode) next.set('workMode', params.workMode);
+  if (params.postedWithinDays !== undefined) next.set('postedWithinDays', String(params.postedWithinDays));
+  if (params.sort && params.sort !== DEFAULT_SORT) next.set('sort', params.sort);
+  next.set('page', String(params.page ?? 0));
 
-  return searchParams;
-}
-
-function createSearchSessionId() {
-  return globalThis.crypto?.randomUUID?.() ?? `search-${Date.now()}`;
+  return next;
 }
 
 function normalizeText(value: string | null | undefined) {
@@ -142,26 +157,41 @@ function buildSalaryLabel(min?: number, max?: number) {
   return '';
 }
 
+function inferWorkMode(location: string | null | undefined) {
+  const normalized = normalizeText(location);
+  if (!normalized) {
+    return undefined;
+  }
+  if (normalized.includes('remote')) {
+    return 'REMOTE';
+  }
+  if (normalized.includes('hybrid')) {
+    return 'HYBRID';
+  }
+  return 'ONSITE';
+}
+
+function isWithinDays(dateString: string, days: number) {
+  const createdAt = new Date(dateString).getTime();
+  if (Number.isNaN(createdAt)) {
+    return false;
+  }
+  const ageMs = Date.now() - createdAt;
+  return ageMs <= days * 24 * 60 * 60 * 1000;
+}
+
 function buildAppliedFilterChips(params: JobSearchParams): AppliedFilterChip[] {
   const chips: AppliedFilterChip[] = [];
 
-  if (params.title) {
-    chips.push({ key: 'title', label: 'Title', value: params.title });
-  }
-
-  if (params.company) {
-    chips.push({ key: 'company', label: 'Company', value: params.company });
-  }
-
-  if (params.location) {
-    chips.push({ key: 'location', label: 'Location', value: params.location });
-  }
+  if (params.title) chips.push({ key: 'title', label: 'Title', value: params.title });
+  if (params.company) chips.push({ key: 'company', label: 'Company', value: params.company });
+  if (params.location) chips.push({ key: 'location', label: 'Location', value: params.location });
 
   if (params.employmentTypes && params.employmentTypes.length > 0) {
     chips.push({
       key: 'employmentTypes',
       label: 'Types',
-      value: params.employmentTypes.map((value) => formatEmploymentType(value)).join(', '),
+      value: params.employmentTypes.map((entry) => formatEmploymentType(entry)).join(', '),
     });
   }
 
@@ -185,7 +215,7 @@ function buildAppliedFilterChips(params: JobSearchParams): AppliedFilterChip[] {
     chips.push({
       key: 'workMode',
       label: 'Work Mode',
-      value: WORK_MODES.find((option) => option.value === params.workMode)?.label ?? params.workMode,
+      value: WORK_MODES.find((entry) => entry.value === params.workMode)?.label ?? params.workMode,
     });
   }
 
@@ -193,7 +223,7 @@ function buildAppliedFilterChips(params: JobSearchParams): AppliedFilterChip[] {
     chips.push({
       key: 'postedWithinDays',
       label: 'Posted',
-      value: POSTED_WINDOWS.find((option) => Number(option.value) === params.postedWithinDays)?.label ?? `${params.postedWithinDays} days`,
+      value: POSTED_WINDOWS.find((entry) => Number(entry.value) === params.postedWithinDays)?.label ?? `${params.postedWithinDays} days`,
     });
   }
 
@@ -230,12 +260,122 @@ function buildJobInsights(job: Job, params: JobSearchParams) {
 }
 
 function buildDescriptionPreview(description: string) {
-  const normalizedDescription = description.replace(/\s+/g, ' ').trim();
-  if (normalizedDescription.length <= 160) {
-    return normalizedDescription;
+  const normalized = description.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= 160) {
+    return normalized;
   }
+  return `${normalized.slice(0, 157).trimEnd()}...`;
+}
 
-  return `${normalizedDescription.slice(0, 157).trimEnd()}...`;
+function filterJobsClientSide(jobs: Job[], params: JobSearchParams) {
+  return jobs.filter((job) => {
+    if (params.employmentTypes && params.employmentTypes.length > 0) {
+      if (!job.employmentType || !params.employmentTypes.includes(job.employmentType)) {
+        return false;
+      }
+    }
+
+    if (params.salaryCurrency && job.salaryCurrency !== params.salaryCurrency) {
+      return false;
+    }
+
+    if (params.workMode) {
+      const inferred = inferWorkMode(job.location);
+      if (inferred !== params.workMode) {
+        return false;
+      }
+    }
+
+    if (params.postedWithinDays !== undefined) {
+      if (!isWithinDays(job.createdAt, params.postedWithinDays)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+function buildFacetCounts(values: Array<string | null | undefined>, limit = 6): FacetValueCount[] {
+  const counts = new Map<string, number>();
+
+  values
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .forEach((value) => {
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    });
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([value, count]) => ({ value, count }));
+}
+
+function deriveRelatedSearches(jobs: Job[], currentTitle?: string) {
+  const counts = new Map<string, number>();
+  const normalizedCurrent = normalizeText(currentTitle);
+
+  jobs.forEach((job) => {
+    job.title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((word) => word.length >= 4 && !DISCOVERY_WORD_STOPLIST.has(word))
+      .forEach((word) => {
+        if (word !== normalizedCurrent) {
+          counts.set(word, (counts.get(word) ?? 0) + 1);
+        }
+      });
+  });
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 8)
+    .map(([word]) => word.charAt(0).toUpperCase() + word.slice(1));
+}
+
+function deriveDiscovery(jobs: Job[], params: JobSearchParams): SearchDiscoveryResponse {
+  const suggestedLocations = buildFacetCounts(jobs.map((job) => job.location));
+  const suggestedCompanies = buildFacetCounts(jobs.map((job) => job.company));
+  const suggestedEmploymentTypes = buildFacetCounts(
+    jobs.map((job) => job.employmentType),
+  );
+
+  return {
+    relatedSearches: deriveRelatedSearches(jobs, params.title),
+    suggestedLocations,
+    suggestedCompanies,
+    suggestedEmploymentTypes,
+  };
+}
+
+function buildServerSearchParams(params: JobSearchParams, page: number, size: number): JobSearchParams {
+  const singleEmploymentType = params.employmentTypes && params.employmentTypes.length === 1
+    ? params.employmentTypes[0]
+    : params.employmentType;
+
+  return {
+    title: params.title,
+    company: params.company,
+    location: params.location,
+    employmentType: singleEmploymentType,
+    salaryMin: params.salaryMin,
+    salaryMax: params.salaryMax,
+    status: params.status,
+    page,
+    size,
+    sort: params.sort,
+  };
+}
+
+function needsClientDataset(params: JobSearchParams) {
+  return Boolean(
+    params.salaryCurrency
+    || params.workMode
+    || params.postedWithinDays !== undefined
+    || (params.employmentTypes && params.employmentTypes.length > 1),
+  );
 }
 
 export default function JobsPage() {
@@ -261,7 +401,9 @@ export default function JobsPage() {
   const [searchTitle, setSearchTitle] = useState(searchParams.get('title') || '');
   const [searchCompany, setSearchCompany] = useState(searchParams.get('company') || '');
   const [searchLocation, setSearchLocation] = useState(searchParams.get('location') || '');
-  const [selectedEmploymentTypes, setSelectedEmploymentTypes] = useState<string[]>(parseEmploymentTypesParam(searchParams.get('employmentTypes') ?? searchParams.get('employmentType')));
+  const [selectedEmploymentTypes, setSelectedEmploymentTypes] = useState<string[]>(
+    parseEmploymentTypesParam(searchParams.get('employmentTypes') ?? searchParams.get('employmentType')),
+  );
   const [salaryMinInput, setSalaryMinInput] = useState(searchParams.get('salaryMin') || '');
   const [salaryMaxInput, setSalaryMaxInput] = useState(searchParams.get('salaryMax') || '');
   const [salaryCurrency, setSalaryCurrency] = useState(searchParams.get('salaryCurrency') || '');
@@ -269,9 +411,7 @@ export default function JobsPage() {
   const [postedWithinDays, setPostedWithinDays] = useState(searchParams.get('postedWithinDays') || '');
   const [sortValue, setSortValue] = useState(searchParams.get('sort') || DEFAULT_SORT);
 
-  const activeSearchRef = useRef<ActiveSearchSession | null>(null);
-
-  const currentSearchParams: JobSearchParams = {
+  const currentSearchParams: JobSearchParams = useMemo(() => ({
     title: searchParams.get('title') || undefined,
     company: searchParams.get('company') || undefined,
     location: searchParams.get('location') || undefined,
@@ -283,19 +423,19 @@ export default function JobsPage() {
     postedWithinDays: parsePositiveNumber(searchParams.get('postedWithinDays')),
     page: Number.parseInt(searchParams.get('page') || '0', 10),
     sort: searchParams.get('sort') || DEFAULT_SORT,
-  };
+  }), [searchParams]);
 
   const hasDraftFilters = Boolean(
-    searchTitle ||
-    searchCompany ||
-    searchLocation ||
-    selectedEmploymentTypes.length > 0 ||
-    salaryMinInput ||
-    salaryMaxInput ||
-    salaryCurrency ||
-    workMode ||
-    postedWithinDays ||
-    sortValue !== DEFAULT_SORT
+    searchTitle
+    || searchCompany
+    || searchLocation
+    || selectedEmploymentTypes.length > 0
+    || salaryMinInput
+    || salaryMaxInput
+    || salaryCurrency
+    || workMode
+    || postedWithinDays
+    || sortValue !== DEFAULT_SORT,
   );
 
   const appliedFilterChips = buildAppliedFilterChips(currentSearchParams);
@@ -305,7 +445,9 @@ export default function JobsPage() {
     setSearchTitle(searchParams.get('title') || '');
     setSearchCompany(searchParams.get('company') || '');
     setSearchLocation(searchParams.get('location') || '');
-    setSelectedEmploymentTypes(parseEmploymentTypesParam(searchParams.get('employmentTypes') ?? searchParams.get('employmentType')));
+    setSelectedEmploymentTypes(
+      parseEmploymentTypesParam(searchParams.get('employmentTypes') ?? searchParams.get('employmentType')),
+    );
     setSalaryMinInput(searchParams.get('salaryMin') || '');
     setSalaryMaxInput(searchParams.get('salaryMax') || '');
     setSalaryCurrency(searchParams.get('salaryCurrency') || '');
@@ -316,68 +458,85 @@ export default function JobsPage() {
 
   useEffect(() => {
     let ignore = false;
-    const previousSearch = activeSearchRef.current;
-    if (previousSearch && !previousSearch.clicked) {
-      void trackSearchAbandon(user?.id, previousSearch.sessionId);
-    }
 
-    const sessionId = createSearchSessionId();
-    activeSearchRef.current = { sessionId, clicked: false };
+    const fetchAllServerMatches = async (baseParams: JobSearchParams) => {
+      const collected: Job[] = [];
 
-    const fetchJobsAndDiscovery = async () => {
+      for (let page = 0; page < CLIENT_SEARCH_MAX_PAGES; page += 1) {
+        const response = await searchJobs(
+          buildServerSearchParams(baseParams, page, CLIENT_SEARCH_PAGE_SIZE),
+        );
+        collected.push(...response.content);
+        if (response.last) {
+          break;
+        }
+      }
+
+      return collected;
+    };
+
+    const fetchJobs = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        const response = await searchJobs(
-          {
-            ...currentSearchParams,
-            status: 'ACTIVE',
-            size: pagination.size,
-          },
-          {
-            userId: user?.id,
-            sessionId,
-          },
-        );
+        const baseParams: JobSearchParams = {
+          ...currentSearchParams,
+          status: 'ACTIVE',
+        };
+        const requiresClientDataset = needsClientDataset(baseParams);
 
+        if (requiresClientDataset) {
+          const serverJobs = await fetchAllServerMatches(baseParams);
+          if (ignore) {
+            return;
+          }
+
+          const filtered = filterJobsClientSide(serverJobs, baseParams);
+          const totalElements = filtered.length;
+          const totalPages = Math.max(1, Math.ceil(totalElements / pagination.size));
+          const safePage = Math.min(baseParams.page ?? 0, totalPages - 1);
+          const start = safePage * pagination.size;
+          const pagedJobs = filtered.slice(start, start + pagination.size);
+
+          setJobs(pagedJobs);
+          setPagination((previous) => ({
+            ...previous,
+            totalElements,
+            totalPages,
+            currentPage: safePage,
+          }));
+          setDiscovery(deriveDiscovery(filtered, baseParams));
+          return;
+        }
+
+        const response = await searchJobs(
+          buildServerSearchParams(baseParams, baseParams.page ?? 0, pagination.size),
+        );
         if (ignore) {
           return;
         }
 
-        setJobs(response.content);
+        const filteredPage = filterJobsClientSide(response.content, baseParams);
+
+        setJobs(filteredPage);
         setPagination((previous) => ({
           ...previous,
           totalElements: response.totalElements,
           totalPages: response.totalPages,
           currentPage: response.number,
         }));
-      } catch (err) {
+        setDiscovery(deriveDiscovery(response.content, baseParams));
+      } catch (requestError) {
         if (!ignore) {
           setError('Failed to load jobs. Please try again.');
-          console.error('Error fetching jobs:', err);
-        }
-        return;
-      }
-
-      try {
-        const discoveryResponse = await getSearchDiscovery({
-          ...currentSearchParams,
-          status: 'ACTIVE',
-        });
-
-        if (!ignore) {
-          setDiscovery(discoveryResponse);
-        }
-      } catch (err) {
-        if (!ignore) {
+          setJobs([]);
           setDiscovery({
             relatedSearches: [],
             suggestedLocations: [],
             suggestedCompanies: [],
             suggestedEmploymentTypes: [],
           });
-          console.error('Error fetching search discovery:', err);
         }
       } finally {
         if (!ignore) {
@@ -386,35 +545,15 @@ export default function JobsPage() {
       }
     };
 
-    void fetchJobsAndDiscovery();
+    void fetchJobs();
 
     return () => {
       ignore = true;
     };
   }, [
-    currentSearchParams.title,
-    currentSearchParams.company,
-    currentSearchParams.location,
-    currentSearchParams.employmentTypes?.join(','),
-    currentSearchParams.salaryMin,
-    currentSearchParams.salaryMax,
-    currentSearchParams.salaryCurrency,
-    currentSearchParams.workMode,
-    currentSearchParams.postedWithinDays,
-    currentSearchParams.page,
-    currentSearchParams.sort,
+    currentSearchParams,
     pagination.size,
-    user?.id,
   ]);
-
-  useEffect(() => {
-    return () => {
-      const activeSearch = activeSearchRef.current;
-      if (activeSearch && !activeSearch.clicked) {
-        void trackSearchAbandon(user?.id, activeSearch.sessionId);
-      }
-    };
-  }, [user?.id]);
 
   const updateSearchParams = (params: JobSearchParams) => {
     setShowMobileFilters(false);
@@ -544,11 +683,11 @@ export default function JobsPage() {
   };
 
   const handleToggleEmploymentType = (value: string) => {
-    setSelectedEmploymentTypes((previous) =>
+    setSelectedEmploymentTypes((previous) => (
       previous.includes(value)
         ? previous.filter((entry) => entry !== value)
-        : [...previous, value],
-    );
+        : [...previous, value]
+    ));
   };
 
   const handleSortChange = (value: string) => {
@@ -558,16 +697,6 @@ export default function JobsPage() {
       sort: value,
       page: 0,
     });
-  };
-
-  const handleJobClick = (job: Job) => {
-    const activeSearch = activeSearchRef.current;
-    if (!activeSearch || activeSearch.clicked) {
-      return;
-    }
-
-    activeSearch.clicked = true;
-    void trackSearchClick(user?.id, activeSearch.sessionId, job.id);
   };
 
   const renderFacetButtons = (
@@ -608,9 +737,9 @@ export default function JobsPage() {
       <header className="dashboard-header jobs-topbar">
         <Link to="/" className="logo">
           <svg className="logo-emblem" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="44" height="44" rx="8" fill="#006B3C"/>
+            <rect width="44" height="44" rx="8" fill="#006B3C" />
             <text x="22" y="29" textAnchor="middle" fontFamily="Syne, sans-serif" fontWeight="800" fontSize="18" fill="white">UL</text>
-            <path d="M22 36 C22 36 19 32 19 30 C19 28.5 20.5 27.5 22 27.5 C23.5 27.5 25 28.5 25 30 C25 32 22 36 22 36Z" fill="white" opacity="0.9"/>
+            <path d="M22 36 C22 36 19 32 19 30 C19 28.5 20.5 27.5 22 27.5 C23.5 27.5 25 28.5 25 30 C25 32 22 36 22 36Z" fill="white" opacity="0.9" />
           </svg>
           Job<span>Portal</span>
         </Link>
@@ -623,11 +752,7 @@ export default function JobsPage() {
             </div>
           )}
           {hasAppliedFilters && (
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={handleClearFilters}
-            >
+            <button type="button" className="btn btn-ghost" onClick={handleClearFilters}>
               Browse All Jobs
             </button>
           )}
@@ -650,7 +775,6 @@ export default function JobsPage() {
                 and practical controls that keep your place while you refine.
               </p>
             </div>
-
           </div>
 
           <div className="jobs-header-stats">
@@ -730,15 +854,9 @@ export default function JobsPage() {
               </div>
 
               <div className="jobs-search-actions">
-                <button type="submit" className="btn btn-primary">
-                  Search Jobs
-                </button>
+                <button type="submit" className="btn btn-primary">Search Jobs</button>
                 {hasDraftFilters && (
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={handleClearFilters}
-                  >
+                  <button type="button" className="btn btn-ghost" onClick={handleClearFilters}>
                     Reset
                   </button>
                 )}
@@ -908,15 +1026,9 @@ export default function JobsPage() {
               </div>
 
               <div className="filter-actions">
-                <button type="button" className="btn btn-primary" onClick={applySearch}>
-                  Apply Filters
-                </button>
+                <button type="button" className="btn btn-primary" onClick={applySearch}>Apply Filters</button>
                 {hasDraftFilters && (
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={handleClearFilters}
-                  >
+                  <button type="button" className="btn btn-ghost" onClick={handleClearFilters}>
                     Clear Filters
                   </button>
                 )}
@@ -933,11 +1045,7 @@ export default function JobsPage() {
             </div>
 
             <div className="jobs-results-toolbar-actions">
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => setShowMobileFilters(true)}
-              >
+              <button type="button" className="btn btn-ghost" onClick={() => setShowMobileFilters(true)}>
                 Advanced Filters
               </button>
               <button
@@ -982,10 +1090,10 @@ export default function JobsPage() {
             </div>
           )}
 
-          {(discovery.relatedSearches.length > 0 ||
-            discovery.suggestedLocations.length > 0 ||
-            discovery.suggestedCompanies.length > 0 ||
-            discovery.suggestedEmploymentTypes.length > 0) && (
+          {(discovery.relatedSearches.length > 0
+            || discovery.suggestedLocations.length > 0
+            || discovery.suggestedCompanies.length > 0
+            || discovery.suggestedEmploymentTypes.length > 0) && (
             <section className="jobs-discovery-grid">
               {discovery.relatedSearches.length > 0 && (
                 <section className="jobs-discovery-card solid-card">
@@ -1030,11 +1138,7 @@ export default function JobsPage() {
           {error && (
             <div className="jobs-error solid-card">
               <p>{error}</p>
-              <button
-                type="button"
-                onClick={() => updateSearchParams({ ...currentSearchParams })}
-                className="btn btn-ghost"
-              >
+              <button type="button" onClick={applySearch} className="btn btn-ghost">
                 Try Again
               </button>
             </div>
@@ -1042,14 +1146,14 @@ export default function JobsPage() {
 
           {loading ? (
             <div className="jobs-loading solid-card">
-              <div className="spinner"></div>
+              <div className="spinner" />
               <p>Loading jobs...</p>
             </div>
           ) : jobs.length === 0 ? (
             <div className="jobs-empty solid-card">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="11" cy="11" r="8"/>
-                <path d="m21 21-4.35-4.35"/>
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
               </svg>
               <h3>No jobs found</h3>
               <p>Try a different combination of compensation, work-mode, or role-type filters.</p>
@@ -1066,7 +1170,6 @@ export default function JobsPage() {
                   <JobCard
                     key={job.id}
                     job={job}
-                    onClick={handleJobClick}
                     descriptionPreview={buildDescriptionPreview(job.description)}
                     matchInsights={buildJobInsights(job, currentSearchParams)}
                   />
@@ -1101,6 +1204,14 @@ export default function JobsPage() {
                     onClick={() => handlePageChange(pagination.currentPage + 1)}
                   >
                     Next
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={pagination.currentPage >= pagination.totalPages - 1}
+                    onClick={() => handlePageChange(pagination.totalPages - 1)}
+                  >
+                    Last
                   </button>
                 </div>
               )}

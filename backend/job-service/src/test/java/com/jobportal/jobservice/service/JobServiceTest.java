@@ -35,9 +35,6 @@ class JobServiceTest {
     @Mock
     private JobRepository jobRepository;
 
-    @Mock
-    private SearchIndexSyncService searchIndexSyncService;
-
     @InjectMocks
     private JobServiceImpl jobService;
 
@@ -79,7 +76,6 @@ class JobServiceTest {
         assertEquals(testJob.getTitle(), response.title());
         assertEquals(testJob.getCompany(), response.company());
         verify(jobRepository, times(1)).save(any(Job.class));
-        verify(searchIndexSyncService, times(1)).upsertJob(any(JobResponse.class));
     }
 
     @Test
@@ -129,7 +125,6 @@ class JobServiceTest {
 
         assertNotNull(response);
         verify(jobRepository, times(1)).save(any(Job.class));
-        verify(searchIndexSyncService, times(1)).upsertJob(any(JobResponse.class));
     }
 
     @Test
@@ -147,7 +142,6 @@ class JobServiceTest {
         jobService.deleteJob(1L);
 
         verify(jobRepository, times(1)).deleteById(1L);
-        verify(searchIndexSyncService, times(1)).deleteJob(1L);
     }
 
     @Test
