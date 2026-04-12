@@ -5,9 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATA_FILE="${DATA_FILE:-$SCRIPT_DIR/search-demo-jobs.json}"
 JOB_SERVICE_URL="${JOB_SERVICE_URL:-http://localhost:8081}"
-SEARCH_SERVICE_URL="${SEARCH_SERVICE_URL:-http://localhost:8083}"
 REPLACE_DATA=false
-TRIGGER_REINDEX=false
 
 usage() {
   cat <<'EOF'
@@ -17,17 +15,14 @@ Seed the curated search demo dataset through the job-service API.
 
 Options:
   --job-service-url URL      Base URL for job-service (default: http://localhost:8081)
-  --search-service-url URL   Base URL for search-service (default: http://localhost:8083)
   --data-file PATH           Override the demo dataset file
   --replace                  Delete existing jobs through the API before seeding
-  --reindex                  Trigger search-service reindex after seeding
   -h, --help                 Show this help message
 
 Examples:
   ./seed-jobs.sh
   ./seed-jobs.sh --replace
-  ./seed-jobs.sh --replace --reindex
-  ./seed-jobs.sh --job-service-url http://localhost:8081 --search-service-url http://localhost:8083 --replace
+  ./seed-jobs.sh --job-service-url http://localhost:8081 --replace
 EOF
 }
 
@@ -37,20 +32,12 @@ while [[ $# -gt 0 ]]; do
       JOB_SERVICE_URL="$2"
       shift 2
       ;;
-    --search-service-url)
-      SEARCH_SERVICE_URL="$2"
-      shift 2
-      ;;
     --data-file)
       DATA_FILE="$2"
       shift 2
       ;;
     --replace)
       REPLACE_DATA=true
-      shift
-      ;;
-    --reindex)
-      TRIGGER_REINDEX=true
       shift
       ;;
     -h|--help)
@@ -79,7 +66,6 @@ echo "Seeding curated search demo jobs"
 echo "Job Service:   $JOB_SERVICE_URL"
 echo "Data File:     $DATA_FILE"
 echo "Replace Data:  $REPLACE_DATA"
-echo "Reindex Search:$TRIGGER_REINDEX"
 echo "================================"
 
 python3 - "$JOB_SERVICE_URL" "$DATA_FILE" "$REPLACE_DATA" <<'PY'
@@ -168,12 +154,5 @@ print("By currency:")
 for key in sorted(currency_counts):
     print(f"  - {key}: {currency_counts[key]}")
 PY
-
-if [[ "$TRIGGER_REINDEX" == true ]]; then
-  echo "================================"
-  echo "Triggering search-service reindex..."
-  curl -fsS -X POST "$SEARCH_SERVICE_URL/internal/search/index/reindex" >/dev/null
-  echo "Search index reindex triggered."
-fi
 
 echo "Done."

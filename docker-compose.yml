@@ -77,7 +77,6 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       JOB_SERVICE_URL: http://job-service:8081
-      SEARCH_SERVICE_URL: http://search-service:8083
       APPLICATION_SERVICE_URL: http://application-service:8084
       PROFILE_SERVICE_URL: http://profile-service:8085
       AUTH_SERVICE_URL: http://auth-service:8082
@@ -87,8 +86,6 @@ services:
       auth-service:
         condition: service_healthy
       job-service:
-        condition: service_healthy
-      search-service:
         condition: service_healthy
       application-service:
         condition: service_healthy
@@ -113,37 +110,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jobportal
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
-      SEARCH_SERVICE_URL: http://search-service:8083
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  search-service:
-    build:
-      context: ./backend/search-service
-      dockerfile: Dockerfile
-    container_name: search-service
-    ports:
-      - "8083:8083"
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      JOB_SERVICE_URL: http://job-service:8081
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jobportal
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-    depends_on:
-      postgres:
-        condition: service_healthy
-      job-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3

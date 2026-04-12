@@ -6,18 +6,15 @@ Use this checklist after seeding `search-demo-jobs.json`.
 
 ```bash
 cd backend/job-service
-./scripts/seed-jobs.sh --replace --reindex
+./scripts/seed-jobs.sh --replace
 ```
 
-If you are running the full stack in Docker, the default URLs already match:
-
-- `job-service`: `http://localhost:8081`
-- `search-service`: `http://localhost:8083`
+If you are running the full stack in Docker, the default `job-service` URL is `http://localhost:8081`.
 
 ## Core Search Checks
 
-1. Open `http://localhost:8080/api/search/jobs?page=0&size=20`
-   - Expect a non-empty response with mostly `ACTIVE` jobs.
+1. Open `http://localhost:8080/api/jobs/search?page=0&size=20`
+    - Expect a non-empty response with mostly `ACTIVE` jobs.
 2. Open `http://localhost/jobs`
    - Expect the jobs page to render a large, varied result set.
 3. Search `Frontend`
@@ -44,7 +41,7 @@ If you are running the full stack in Docker, the default URLs already match:
 7. Filter by `salaryMin=90000&salaryMax=130000`
    - Expect senior or platform-heavy roles more often than entry-level roles.
 
-## Ranking And Discovery Checks
+## Query Relevance Checks
 
 1. Search `Search`
    - Expect `Search Relevance Engineer` to be a strong match.

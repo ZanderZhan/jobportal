@@ -4,33 +4,11 @@ import './JobCard.css';
 
 interface JobCardProps {
   job: Job;
-  onClick?: (job: Job) => void;
-  descriptionPreview?: string;
-  matchInsights?: string[];
 }
 
-export default function JobCard({
-  job,
-  onClick,
-  descriptionPreview,
-  matchInsights = [],
-}: JobCardProps) {
+export default function JobCard({ job }: JobCardProps) {
   return (
-    <Link
-      to={`/jobs/${job.id}`}
-      className="job-card"
-      onClick={() => onClick?.(job)}
-    >
-      {matchInsights.length > 0 && (
-        <div className="job-card-insights">
-          {matchInsights.map((insight) => (
-            <span key={insight} className="job-card-insight">
-              {insight}
-            </span>
-          ))}
-        </div>
-      )}
-
+    <Link to={`/jobs/${job.id}`} className="job-card">
       <div className="job-card-header">
         <div className="job-card-company-logo">
           {job.company.charAt(0).toUpperCase()}
@@ -65,10 +43,6 @@ export default function JobCard({
       <p className="job-card-salary">
         {formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency)}
       </p>
-
-      {descriptionPreview && (
-        <p className="job-card-description">{descriptionPreview}</p>
-      )}
       
       {job.requirements.length > 0 && (
         <div className="job-card-tags">
