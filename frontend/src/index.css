@@ -73,14 +73,17 @@
 }
 
 html {
+  font-size: 17px;
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.6;
   color: var(--color-text);
   background-color: var(--color-bg);
@@ -92,6 +95,12 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+@media (max-width: 720px) {
+  html {
+    font-size: 16px;
+  }
 }
 
 /* ── Typography ──────────────────────────────────────────── */
