@@ -26,6 +26,8 @@ services:
     url: http://localhost:8083
   application-service:
     url: http://localhost:8084
+  profile-service:
+    url: http://localhost:8085
 
 management:
   endpoints:

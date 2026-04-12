@@ -29,6 +29,18 @@ Those remain in:
 - `application-service`
 - `search-service`
 
+## Current State
+
+Milestone 2 is now in place:
+
+- the service boundary is defined
+- the MVP field sets are defined
+- the visibility model is defined
+- the Spring Boot module, Dockerfile, and environment configs are present
+- Actuator health is available through the standard service setup
+- gateway routing can point `/api/profiles/**` at `profile-service`
+- domain behavior is intentionally deferred to Milestone 3 so the current backend stays stable
+
 ## Bounded Context Alignment
 
 ### Aggregate Roots
@@ -88,6 +100,125 @@ Those remain in:
   - may consume employer branding or public profile metadata later
 - `notification-service`
   - may consume profile completion or profile update events later
+
+## Milestone 1 Decisions
+
+### Auth And Ownership Contract
+
+- `profile-service` must trust the same gateway-forwarded headers already used by `application-service` and `job-service`:
+  - `X-User-Id`
+  - `X-User-Role`
+- accepted role values should stay aligned with `auth-service`:
+  - `STUDENT`
+  - `HIRING`
+  - `ADMIN`
+- `auth-service` remains the only source of truth for:
+  - identity id
+  - email
+  - display name
+  - role
+  - account verification state
+  - credentials, JWT issuance, refresh tokens, and OAuth state
+- `profile-service` owns only profile data keyed by the authenticated auth user id
+- `profile-service` must not create its own role model, credential storage, or parallel account verification rules
+- self-service profile writes must always resolve ownership from `X-User-Id`, never from request body fields
+
+### Locked MVP Fields
+
+#### Student Profile
+
+Editable MVP fields:
+
+- `headline`
+- `bio`
+- `location`
+- `phone`
+- `visibility`
+- `jobSearchStatus`
+- `skills`
+- `education`
+- `experience`
+- `portfolioLinks`
+- `resumeReference`
+
+Read-only / derived at the boundary:
+
+- `userId`
+- `email`
+- `name`
+- `role`
+- `profileCompleteness`
+- `createdAt`
+- `updatedAt`
+
+#### Employer Profile
+
+Editable MVP fields:
+
+- `companyName`
+- `companyDescription`
+- `websiteUrl`
+- `logoReference`
+- `location`
+- `contactName`
+- `contactEmail`
+- `visibility`
+
+Read-only / derived at the boundary:
+
+- `userId`
+- `email`
+- `name`
+- `role`
+- `createdAt`
+- `updatedAt`
+
+Fields explicitly deferred from Milestone 1:
+
+- binary resume upload or file storage implementation
+- employer verification flags
+- profile-driven recommendations
+- social graph or networking data
+- advanced branding assets beyond a single `logoReference`
+
+### Locked Visibility Model
+
+- use a minimal visibility model in the first release:
+  - `PRIVATE`
+  - `PUBLIC`
+- default visibility should be `PRIVATE` for both student and employer profiles
+- self endpoints ignore visibility and remain owner-only
+- public endpoints may return a limited projection only when the profile visibility is `PUBLIC`
+- public profile responses must never expose:
+  - auth credentials or tokens
+  - private contact data not explicitly intended for public use
+  - `phone`
+  - `contactEmail`
+  - active `resumeReference`
+- employer review access is a separate future policy decision and must not be inferred from `PUBLIC`
+
+### Locked Resume Reference Policy
+
+- resume handling stays reference-only in `profile-service`
+- no binary file content should be stored in the service database or sent through service APIs
+- the persisted value may be an opaque reference plus metadata, but it must stay storage-provider-agnostic
+- `application-service` keeps its own `resumeReference` behavior until a later migration is explicitly designed
+
+### Compatibility Rules
+
+- do not move employer ownership or job lifecycle rules out of `job-service`
+- do not introduce a required synchronous dependency from `application-service` to `profile-service` in the first release
+- do not add broker publishing in Milestone 1
+- reserve `"/api/profiles/**"` as the future gateway route, but do not change gateway runtime config until Milestone 2
+- keep the planned implementation stack aligned with the current backend services:
+  - Java 25
+  - Spring Boot 4.0.2
+  - Spring Web
+  - Spring Data JPA
+  - Spring Validation
+  - Spring Actuator
+  - PostgreSQL
+  - Springdoc OpenAPI
 
 ## Core Invariants
 
@@ -232,6 +363,16 @@ Those remain in:
 - introduce profile events only when a real downstream consumer exists
 - keep event naming aligned with the existing `message-broker` contract style
 
+## Milestone Status
+
+- Milestone 1: complete in planning and boundary documentation
+- Milestone 2: complete as service skeleton and infrastructure wiring
+- Milestone 3: not started
+- Milestone 4: not started
+- Milestone 5: not started
+- Milestone 6: not started
+- Milestone 7: not started
+
 ## Milestones
 
 ### Milestone 1: Boundary Definition
@@ -240,6 +381,8 @@ Those remain in:
 - confirm student and employer MVP field sets
 - confirm public vs private visibility rules
 - confirm resume handling stays reference-only
+- lock the gateway/auth header assumptions to the same `X-User-Id` / `X-User-Role` pattern already used elsewhere
+- leave runtime implementation to Milestone 2 so existing services remain unchanged
 
 ### Milestone 2: Service Skeleton
 
@@ -348,8 +491,9 @@ Planned local defaults:
 
 ## Recommended Next Step
 
-Start with **Milestone 1** only:
+Start with **Milestone 3**:
 
-- lock the boundary with `auth-service`
-- finalize the MVP fields for student and employer profiles
-- confirm the public/private visibility model
+- implement `StudentProfile`
+- add `GET /api/profiles/me`
+- add `PUT /api/profiles/me`
+- calculate and expose profile completeness

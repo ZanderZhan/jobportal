@@ -94,4 +94,30 @@ class RouteConfigTest {
             );
         assertThat(hasApplicationsApiRoute).isTrue();
     }
+
+    @Test
+    void shouldHaveProfileServiceRoute() {
+        var routes = routeLocator.getRoutes().collectList().block();
+
+        assertThat(routes).isNotNull();
+
+        boolean hasProfileRoute = routes.stream()
+            .anyMatch(route -> route.getId().equals("profile-service"));
+        assertThat(hasProfileRoute).isTrue();
+    }
+
+    @Test
+    void shouldRouteApiProfilesRequestsToProfileService() {
+        var routes = routeLocator.getRoutes().collectList().block();
+
+        assertThat(routes).isNotNull();
+
+        boolean hasProfilesApiRoute = routes.stream()
+            .anyMatch(route ->
+                "profile-service".equals(route.getId())
+                    && route.getPredicate() != null
+                    && route.getPredicate().toString().contains("/api/profiles/**")
+            );
+        assertThat(hasProfilesApiRoute).isTrue();
+    }
 }
