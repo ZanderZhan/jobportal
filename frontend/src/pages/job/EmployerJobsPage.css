@@ -14,6 +14,12 @@
   margin: 0 auto;
 }
 
+.employer-jobs-header-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: var(--space-4);
+}
+
 .employer-jobs-header h1 {
   font-family: var(--font-display);
   font-size: 2rem;

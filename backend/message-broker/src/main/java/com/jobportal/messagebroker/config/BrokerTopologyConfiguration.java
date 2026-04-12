@@ -34,6 +34,12 @@ public class BrokerTopologyConfiguration {
         );
         Queue applicationStatusChangedDlq = durableQueue(BrokerTopology.APPLICATION_STATUS_CHANGED_DLQ);
 
+        Queue applicationWithdrawnQueue = durableQueue(
+                BrokerTopology.APPLICATION_WITHDRAWN_QUEUE,
+                BrokerTopology.APPLICATION_WITHDRAWN_DLQ
+        );
+        Queue applicationWithdrawnDlq = durableQueue(BrokerTopology.APPLICATION_WITHDRAWN_DLQ);
+
         Queue jobPostedQueue = durableQueue(
                 BrokerTopology.JOB_POSTED_QUEUE,
                 BrokerTopology.JOB_POSTED_DLQ
@@ -53,6 +59,8 @@ public class BrokerTopologyConfiguration {
                 applicationSubmittedDlq,
                 applicationStatusChangedQueue,
                 applicationStatusChangedDlq,
+                applicationWithdrawnQueue,
+                applicationWithdrawnDlq,
                 jobPostedQueue,
                 jobPostedDlq,
                 employerVerifiedQueue,
@@ -61,6 +69,8 @@ public class BrokerTopologyConfiguration {
                 bind(applicationSubmittedDlq, deadLetterExchange, BrokerTopology.APPLICATION_SUBMITTED_DLQ),
                 bind(applicationStatusChangedQueue, eventsExchange, BrokerTopology.APPLICATION_STATUS_CHANGED_ROUTING_KEY),
                 bind(applicationStatusChangedDlq, deadLetterExchange, BrokerTopology.APPLICATION_STATUS_CHANGED_DLQ),
+                bind(applicationWithdrawnQueue, eventsExchange, BrokerTopology.APPLICATION_WITHDRAWN_ROUTING_KEY),
+                bind(applicationWithdrawnDlq, deadLetterExchange, BrokerTopology.APPLICATION_WITHDRAWN_DLQ),
                 bind(jobPostedQueue, eventsExchange, BrokerTopology.JOB_POSTED_ROUTING_KEY),
                 bind(jobPostedDlq, deadLetterExchange, BrokerTopology.JOB_POSTED_DLQ),
                 bind(employerVerifiedQueue, eventsExchange, BrokerTopology.EMPLOYER_VERIFIED_ROUTING_KEY),

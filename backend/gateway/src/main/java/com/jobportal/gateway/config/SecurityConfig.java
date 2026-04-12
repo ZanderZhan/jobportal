@@ -28,6 +28,7 @@ public class SecurityConfig {
             .authorizeExchange(exchanges -> exchanges
                 // Public endpoints
                 .pathMatchers(HttpMethod.GET, "/api/jobs/**").permitAll()
+                .pathMatchers(HttpMethod.GET, "/api/search/**").permitAll()
                 .pathMatchers("/actuator/health").permitAll()
                 .pathMatchers("/actuator/info").permitAll()
                 .pathMatchers("/error").permitAll()

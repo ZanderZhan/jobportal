@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { isEmployerRole } from '../../lib/authRoles';
 import {
   type Job,
-  searchJobs,
+  searchEmployerJobs,
   deleteJob,
   formatSalary,
   formatEmploymentType,
@@ -22,17 +23,19 @@ export function EmployerJobsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const isEmployer = isEmployerRole(user?.role, user?.userType);
+
   useEffect(() => {
-    if (isAuthenticated && user?.role === 'EMPLOYER') {
+    if (isAuthenticated && isEmployer) {
       fetchJobs();
     }
-  }, [isAuthenticated, user, page, statusFilter]);
+  }, [isAuthenticated, isEmployer, page, statusFilter]);
 
   const fetchJobs = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await searchJobs({
+      const response = await searchEmployerJobs({
         status: statusFilter || undefined,
         employerId: user!.id,
         page,
@@ -87,7 +90,7 @@ export function EmployerJobsPage() {
     );
   }
 
-  if (!isAuthenticated || user?.role !== 'EMPLOYER') {
+  if (!isAuthenticated || !isEmployer) {
     return (
       <div className="employer-jobs-page">
         <div className="access-denied">
@@ -107,6 +110,11 @@ export function EmployerJobsPage() {
         <div className="employer-jobs-header-content">
           <h1>My Job Listings</h1>
           <p>Manage your job postings</p>
+          <div className="employer-jobs-header-actions">
+            <Link to="/dashboard" className="btn btn-secondary">
+              Homepage
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -194,6 +202,12 @@ export function EmployerJobsPage() {
                       <td>{formatDate(job.createdAt)}</td>
                       <td>
                         <div className="action-buttons">
+                          <Link
+                            to={`/employer/jobs/${job.id}/applications`}
+                            className="btn btn-sm btn-primary"
+                          >
+                            Applicants
+                          </Link>
                           <Link
                             to={`/employer/jobs/${job.id}/edit`}
                             className="btn btn-sm btn-secondary"

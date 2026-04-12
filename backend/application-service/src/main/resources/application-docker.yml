@@ -1,0 +1,64 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: application-service
+  datasource:
+    url: jdbc:postgresql://postgres:5432/jobportal
+    username: postgres
+    password: ${SPRING_DATASOURCE_PASSWORD:-postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:jobportal}
+    password: ${SPRING_RABBITMQ_PASSWORD:jobportal}
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.jobportal.applicationservice: INFO
+
+services:
+  job-service:
+    url: ${JOB_SERVICE_URL:http://job-service:8081}
+    connect-timeout-ms: ${JOB_SERVICE_CONNECT_TIMEOUT_MS:1000}
+    read-timeout-ms: ${JOB_SERVICE_READ_TIMEOUT_MS:2000}
+    retry:
+      max-attempts: ${JOB_SERVICE_RETRY_MAX_ATTEMPTS:2}
+      backoff-ms: ${JOB_SERVICE_RETRY_BACKOFF_MS:100}
+    circuit-breaker:
+      failure-threshold: ${JOB_SERVICE_CIRCUIT_BREAKER_FAILURE_THRESHOLD:3}
+      open-seconds: ${JOB_SERVICE_CIRCUIT_BREAKER_OPEN_SECONDS:30}
+
+messaging:
+  exchange:
+    events: ${MESSAGING_EVENTS_EXCHANGE:jobportal.domain.events}
+  routing-keys:
+    application-submitted: ${MESSAGING_APPLICATION_SUBMITTED_ROUTING_KEY:application.submitted}
+    application-status-changed: ${MESSAGING_APPLICATION_STATUS_CHANGED_ROUTING_KEY:application.status-changed}
+    application-withdrawn: ${MESSAGING_APPLICATION_WITHDRAWN_ROUTING_KEY:application.withdrawn}

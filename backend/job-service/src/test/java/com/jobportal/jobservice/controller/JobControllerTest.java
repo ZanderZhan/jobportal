@@ -82,7 +82,7 @@ class JobControllerTest {
     void createJob_ValidRequest_ShouldReturnCreated() throws Exception {
         when(jobService.createJob(any(JobRequest.class), any())).thenReturn(testJobResponse);
 
-        mockMvc.perform(post("/jobs")
+        mockMvc.perform(post("/api/jobs")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testJobRequest)))
                 .andExpect(status().isCreated())
@@ -95,7 +95,7 @@ class JobControllerTest {
     void createJob_InvalidRequest_ShouldReturnBadRequest() throws Exception {
         JobRequest invalidRequest = new JobRequest(null, null, null, null, null, null, null, null, null, null);
 
-        mockMvc.perform(post("/jobs")
+        mockMvc.perform(post("/api/jobs")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest());
@@ -105,7 +105,7 @@ class JobControllerTest {
     void getJobById_WhenExists_ShouldReturnJob() throws Exception {
         when(jobService.getJobById(1L)).thenReturn(testJobResponse);
 
-        mockMvc.perform(get("/jobs/1"))
+        mockMvc.perform(get("/api/jobs/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.title").value("Software Engineer"));
@@ -115,7 +115,7 @@ class JobControllerTest {
     void getJobById_WhenNotExists_ShouldReturnNotFound() throws Exception {
         when(jobService.getJobById(99L)).thenThrow(new JobNotFoundException(99L));
 
-        mockMvc.perform(get("/jobs/99"))
+        mockMvc.perform(get("/api/jobs/99"))
                 .andExpect(status().isNotFound());
     }
 
@@ -126,7 +126,7 @@ class JobControllerTest {
 
         when(jobService.getAllJobs(any(Pageable.class))).thenReturn(page);
 
-        mockMvc.perform(get("/jobs"))
+        mockMvc.perform(get("/api/jobs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content[0].id").value(1));
@@ -137,7 +137,7 @@ class JobControllerTest {
         when(jobService.getJobById(1L)).thenReturn(testJobResponse);
         when(jobService.updateJob(eq(1L), any(JobRequest.class))).thenReturn(testJobResponse);
 
-        mockMvc.perform(put("/jobs/1")
+        mockMvc.perform(put("/api/jobs/1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testJobRequest)))
                 .andExpect(status().isOk())
@@ -148,7 +148,7 @@ class JobControllerTest {
     void updateJob_WhenNotExists_ShouldReturnNotFound() throws Exception {
         when(jobService.getJobById(99L)).thenThrow(new JobNotFoundException(99L));
 
-        mockMvc.perform(put("/jobs/99")
+        mockMvc.perform(put("/api/jobs/99")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testJobRequest)))
                 .andExpect(status().isNotFound());
@@ -159,7 +159,7 @@ class JobControllerTest {
         when(jobService.getJobById(1L)).thenReturn(testJobResponse);
         doNothing().when(jobService).deleteJob(1L);
 
-        mockMvc.perform(delete("/jobs/1"))
+        mockMvc.perform(delete("/api/jobs/1"))
                 .andExpect(status().isNoContent());
     }
 
@@ -167,7 +167,7 @@ class JobControllerTest {
     void deleteJob_WhenNotExists_ShouldReturnNotFound() throws Exception {
         when(jobService.getJobById(99L)).thenThrow(new JobNotFoundException(99L));
 
-        mockMvc.perform(delete("/jobs/99"))
+        mockMvc.perform(delete("/api/jobs/99"))
                 .andExpect(status().isNotFound());
     }
 
@@ -178,7 +178,7 @@ class JobControllerTest {
 
         when(jobService.searchJobs(any(), any(Pageable.class))).thenReturn(page);
 
-        mockMvc.perform(get("/jobs/search")
+        mockMvc.perform(get("/api/jobs/search")
                 .param("title", "Software")
                 .param("location", "San Francisco"))
                 .andExpect(status().isOk())

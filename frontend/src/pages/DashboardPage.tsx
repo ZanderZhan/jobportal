@@ -1,5 +1,6 @@
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { isEmployerRole } from '../lib/authRoles';
 import '../styles/dashboard.css';
 import '../styles/utilities.css';
 
@@ -7,7 +8,7 @@ export function DashboardPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const isEmployer = user?.role === 'EMPLOYER';
+  const isEmployer = isEmployerRole(user?.role, user?.userType);
 
   const handleLogout = async () => {
     await logout();
@@ -174,7 +175,7 @@ export function DashboardPage() {
                     <span className="dashboard-action-label">Post new job</span>
                   </button>
 
-                  <button className="solid-card dashboard-action-card">
+                  <button className="solid-card dashboard-action-card" onClick={() => navigate('/employer/applications')}>
                     <div className="dashboard-action-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -198,7 +199,7 @@ export function DashboardPage() {
                     <span className="dashboard-action-label">Browse jobs</span>
                   </button>
 
-                  <button className="solid-card dashboard-action-card">
+                  <button className="solid-card dashboard-action-card" onClick={() => navigate('/applications')}>
                     <div className="dashboard-action-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -210,7 +211,7 @@ export function DashboardPage() {
                     <span className="dashboard-action-label">My applications</span>
                   </button>
 
-                  <button className="solid-card dashboard-action-card">
+                  <button className="solid-card dashboard-action-card" onClick={() => navigate('/profile')}>
                     <div className="dashboard-action-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />

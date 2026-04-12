@@ -19,12 +19,27 @@ spring:
         format_sql: true
     open-in-view: false
 
+services:
+  search-service:
+    url: ${SEARCH_SERVICE_URL:http://localhost:8083}
+    connect-timeout-ms: ${SEARCH_SERVICE_CONNECT_TIMEOUT_MS:1000}
+    read-timeout-ms: ${SEARCH_SERVICE_READ_TIMEOUT_MS:2000}
+
 springdoc:
   api-docs:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: method
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
 
 logging:
   level:

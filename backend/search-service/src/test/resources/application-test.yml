@@ -1,0 +1,44 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:searchservice;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      mode: never
+
+services:
+  job-service:
+    url: http://localhost:8081
+    connect-timeout-ms: 100
+    read-timeout-ms: 100
+
+search:
+  pagination:
+    max-size: 100
+  index:
+    reindex-page-size: 100
+  ranking:
+    max-candidate-window: 200
+  cache:
+    ttl-seconds: 30
+    max-entries: 200
+  facets:
+    sample-size: 200
+    max-values: 10
+  autocomplete:
+    limit: 8
+  discovery:
+    related-limit: 6
+  resilience:
+    retry:
+      max-attempts: 2
+      backoff-ms: 0
+    circuit-breaker:
+      failure-threshold: 3
+      open-seconds: 30
+
+logging:
+  level:
+    root: WARN

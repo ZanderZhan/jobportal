@@ -1,0 +1,65 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: search-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/jobportal
+    username: postgres
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  sql:
+    init:
+      mode: always
+      platform: postgresql
+
+services:
+  job-service:
+    url: ${JOB_SERVICE_URL:http://localhost:8081}
+    connect-timeout-ms: ${JOB_SERVICE_CONNECT_TIMEOUT_MS:1000}
+    read-timeout-ms: ${JOB_SERVICE_READ_TIMEOUT_MS:2000}
+
+search:
+  pagination:
+    max-size: ${SEARCH_PAGINATION_MAX_SIZE:100}
+  index:
+    reindex-page-size: ${SEARCH_INDEX_REINDEX_PAGE_SIZE:200}
+  ranking:
+    max-candidate-window: ${SEARCH_RANKING_MAX_CANDIDATE_WINDOW:200}
+  cache:
+    ttl-seconds: ${SEARCH_CACHE_TTL_SECONDS:30}
+    max-entries: ${SEARCH_CACHE_MAX_ENTRIES:200}
+  facets:
+    sample-size: ${SEARCH_FACETS_SAMPLE_SIZE:200}
+    max-values: ${SEARCH_FACETS_MAX_VALUES:10}
+  autocomplete:
+    limit: ${SEARCH_AUTOCOMPLETE_LIMIT:8}
+  discovery:
+    related-limit: ${SEARCH_DISCOVERY_RELATED_LIMIT:6}
+  resilience:
+    retry:
+      max-attempts: ${SEARCH_RETRY_MAX_ATTEMPTS:2}
+      backoff-ms: ${SEARCH_RETRY_BACKOFF_MS:100}
+    circuit-breaker:
+      failure-threshold: ${SEARCH_CIRCUIT_BREAKER_FAILURE_THRESHOLD:3}
+      open-seconds: ${SEARCH_CIRCUIT_BREAKER_OPEN_SECONDS:30}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,info
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.jobportal.searchservice: DEBUG

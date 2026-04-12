@@ -1,0 +1,45 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:application-service-testdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    database-platform: org.hibernate.dialect.H2Dialect
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: jobportal
+    password: jobportal
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+services:
+  job-service:
+    url: http://localhost:8081
+    connect-timeout-ms: 1000
+    read-timeout-ms: 2000
+    retry:
+      max-attempts: 2
+      backoff-ms: 0
+    circuit-breaker:
+      failure-threshold: 2
+      open-seconds: 1
+
+messaging:
+  exchange:
+    events: jobportal.domain.events
+  routing-keys:
+    application-submitted: application.submitted
+    application-status-changed: application.status-changed
+    application-withdrawn: application.withdrawn
