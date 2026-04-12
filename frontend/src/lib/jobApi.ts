@@ -22,8 +22,12 @@ export interface JobSearchParams {
   company?: string;
   location?: string;
   employmentType?: string;
+  employmentTypes?: string[];
   salaryMin?: number;
   salaryMax?: number;
+  salaryCurrency?: string;
+  workMode?: 'REMOTE' | 'HYBRID' | 'ONSITE';
+  postedWithinDays?: number;
   status?: string;
   employerId?: string;
   page?: number;
@@ -50,6 +54,9 @@ function buildSearchParams(params: JobSearchParams = {}) {
   if (params.company) searchParams.set('company', params.company);
   if (params.location) searchParams.set('location', params.location);
   if (params.employmentType) searchParams.set('employmentType', params.employmentType);
+  if (!params.employmentType && params.employmentTypes?.length === 1) {
+    searchParams.set('employmentType', params.employmentTypes[0]);
+  }
   if (params.salaryMin !== undefined) searchParams.set('salaryMin', params.salaryMin.toString());
   if (params.salaryMax !== undefined) searchParams.set('salaryMax', params.salaryMax.toString());
   if (params.status) searchParams.set('status', params.status);
