@@ -31,7 +31,7 @@ Those remain in:
 
 ## Current State
 
-Milestone 2 is now in place:
+Milestone 3 is now in place:
 
 - the service boundary is defined
 - the MVP field sets are defined
@@ -39,7 +39,8 @@ Milestone 2 is now in place:
 - the Spring Boot module, Dockerfile, and environment configs are present
 - Actuator health is available through the standard service setup
 - gateway routing can point `/api/profiles/**` at `profile-service`
-- domain behavior is intentionally deferred to Milestone 3 so the current backend stays stable
+- student profile bootstrap, read, update, nested sections, and completeness flows are implemented
+- employer and public profile behavior is intentionally deferred to Milestone 4 so the current backend stays stable
 
 ## Bounded Context Alignment
 
@@ -367,7 +368,7 @@ Fields explicitly deferred from Milestone 1:
 
 - Milestone 1: complete in planning and boundary documentation
 - Milestone 2: complete as service skeleton and infrastructure wiring
-- Milestone 3: not started
+- Milestone 3: complete as the student profile MVP
 - Milestone 4: not started
 - Milestone 5: not started
 - Milestone 6: not started
@@ -491,9 +492,9 @@ Planned local defaults:
 
 ## Recommended Next Step
 
-Start with **Milestone 3**:
+Start with **Milestone 4**:
 
-- implement `StudentProfile`
-- add `GET /api/profiles/me`
-- add `PUT /api/profiles/me`
-- calculate and expose profile completeness
+- implement `EmployerProfile`
+- add public employer profile reads
+- support company description, website, logo reference, and contact metadata
+- keep employer verification ownership in `auth-service`

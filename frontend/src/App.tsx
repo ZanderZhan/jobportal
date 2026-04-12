@@ -12,6 +12,7 @@ import { JobFormPage } from './pages/job/JobFormPage';
 import { MyApplicationsPage } from './pages/application/MyApplicationsPage';
 import { EmployerJobApplicationsPage } from './pages/application/EmployerJobApplicationsPage';
 import { EmployerApplicationsOverviewPage } from './pages/application/EmployerApplicationsOverviewPage';
+import { ProfilePage } from './pages/profile/ProfilePage';
 
 function App() {
   return (
@@ -36,6 +37,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <MyApplicationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             }
           />

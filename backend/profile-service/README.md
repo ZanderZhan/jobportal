@@ -4,15 +4,16 @@ A planned backend microservice for profile-related APIs in the Job Portal applic
 
 ## Current State
 
-Milestone 2 is now in place:
+Milestone 3 is now in place:
 
 - the Spring Boot module exists
 - Gradle, Docker, and environment configuration follow the same conventions as the other backend services
 - PostgreSQL and JPA wiring are ready
 - Actuator health is exposed
 - the gateway can route `/api/profiles/**` to this service
+- student profile bootstrap, read, update, and completeness flows are implemented
 
-The service is still only a skeleton. Domain models and profile APIs start in Milestone 3.
+Employer profile flows, public profile reads, and resume management remain for later milestones.
 
 ## Planned Scope
 
@@ -148,8 +149,9 @@ Rules:
 
 - Milestone 1: complete
 - Milestone 2: complete
-- Milestone 3-7: not started
+- Milestone 3: complete
+- Milestone 4-7: not started
 
 ## Next Step
 
-Milestone 3 should implement the student profile MVP on top of this skeleton without changing the locked service boundaries.
+Milestone 4 should add the employer profile MVP and public employer profile reads without changing the locked service boundaries.

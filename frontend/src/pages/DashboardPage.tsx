@@ -211,7 +211,7 @@ export function DashboardPage() {
                     <span className="dashboard-action-label">My applications</span>
                   </button>
 
-                  <button className="solid-card dashboard-action-card">
+                  <button className="solid-card dashboard-action-card" onClick={() => navigate('/profile')}>
                     <div className="dashboard-action-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
