@@ -1,8 +1,0 @@
-spring:
-  rabbitmq:
-    dynamic: false
-
-management:
-  endpoints:
-    access:
-      default: none
