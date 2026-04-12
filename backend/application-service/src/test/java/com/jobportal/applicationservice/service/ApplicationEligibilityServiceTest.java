@@ -89,4 +89,35 @@ class ApplicationEligibilityServiceTest {
         assertEquals("APPLICATION_JOB_NOT_FOUND", ex.getErrorCode());
         assertEquals(404, ex.getHttpStatus());
     }
+
+    @Test
+    void getEmployerOwnedJob_WhenEmployerOwnsJob_ShouldReturnJobDetails() {
+        when(restTemplate.getForEntity(
+                "http://job-service:8081/api/jobs/{id}",
+                JobDetailsResponse.class,
+                15L
+        )).thenReturn(ResponseEntity.ok(new JobDetailsResponse(15L, "employer-7", "Security Analyst", "ACTIVE")));
+
+        JobDetailsResponse response = applicationEligibilityService.getEmployerOwnedJob(15L, "employer-7");
+
+        assertEquals(15L, response.id());
+        assertEquals("employer-7", response.employerId());
+    }
+
+    @Test
+    void getEmployerOwnedJob_WhenEmployerDoesNotOwnJob_ShouldThrowForbidden() {
+        when(restTemplate.getForEntity(
+                "http://job-service:8081/api/jobs/{id}",
+                JobDetailsResponse.class,
+                15L
+        )).thenReturn(ResponseEntity.ok(new JobDetailsResponse(15L, "employer-7", "Security Analyst", "ACTIVE")));
+
+        ApplicationServiceException ex = assertThrows(
+                ApplicationServiceException.class,
+                () -> applicationEligibilityService.getEmployerOwnedJob(15L, "employer-8")
+        );
+
+        assertEquals("APPLICATION_FORBIDDEN", ex.getErrorCode());
+        assertEquals(403, ex.getHttpStatus());
+    }
 }

@@ -29,4 +29,22 @@ class ApplicationStatusPolicyServiceTest {
         assertFalse(applicationStatusPolicyService.canWithdraw(ApplicationStatus.REJECTED));
         assertFalse(applicationStatusPolicyService.canWithdraw(ApplicationStatus.WITHDRAWN));
     }
+
+    @Test
+    void canTransition_ShouldAllowExpectedEmployerWorkflow() {
+        assertTrue(applicationStatusPolicyService.canTransition(ApplicationStatus.SUBMITTED, ApplicationStatus.UNDER_REVIEW));
+        assertTrue(applicationStatusPolicyService.canTransition(ApplicationStatus.SUBMITTED, ApplicationStatus.REJECTED));
+        assertTrue(applicationStatusPolicyService.canTransition(ApplicationStatus.UNDER_REVIEW, ApplicationStatus.INTERVIEW));
+        assertTrue(applicationStatusPolicyService.canTransition(ApplicationStatus.UNDER_REVIEW, ApplicationStatus.HIRED));
+        assertTrue(applicationStatusPolicyService.canTransition(ApplicationStatus.INTERVIEW, ApplicationStatus.HIRED));
+    }
+
+    @Test
+    void canTransition_ShouldRejectInvalidOrTerminalTransitions() {
+        assertFalse(applicationStatusPolicyService.canTransition(ApplicationStatus.SUBMITTED, ApplicationStatus.HIRED));
+        assertFalse(applicationStatusPolicyService.canTransition(ApplicationStatus.INTERVIEW, ApplicationStatus.UNDER_REVIEW));
+        assertFalse(applicationStatusPolicyService.canTransition(ApplicationStatus.WITHDRAWN, ApplicationStatus.UNDER_REVIEW));
+        assertFalse(applicationStatusPolicyService.canTransition(ApplicationStatus.HIRED, ApplicationStatus.REJECTED));
+        assertFalse(applicationStatusPolicyService.canTransition(ApplicationStatus.SUBMITTED, ApplicationStatus.SUBMITTED));
+    }
 }

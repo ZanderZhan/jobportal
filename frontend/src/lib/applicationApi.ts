@@ -36,6 +36,11 @@ export interface CreateApplicationRequest {
   resumeReference: string;
 }
 
+export interface UpdateApplicationStatusRequest {
+  status: ApplicationStatus;
+  reason?: string;
+}
+
 interface ErrorResponse {
   message?: string;
   errors?: Record<string, string>;
@@ -63,8 +68,34 @@ export async function withdrawApplication(id: number): Promise<ApplicationRecord
   return response.data;
 }
 
+export async function getEmployerApplicationsForJob(jobId: number): Promise<ApplicationRecord[]> {
+  const response = await api.get(`${APPLICATION_API_PATH}/jobs/${jobId}`);
+  return response.data;
+}
+
+export async function updateApplicationStatus(
+  id: number,
+  request: UpdateApplicationStatusRequest,
+): Promise<ApplicationRecord> {
+  const response = await api.put(`${APPLICATION_API_PATH}/${id}/status`, request);
+  return response.data;
+}
+
 export function formatApplicationStatus(status: ApplicationStatus): string {
   return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+export function getNextEmployerStatuses(status: ApplicationStatus): ApplicationStatus[] {
+  switch (status) {
+    case 'SUBMITTED':
+      return ['UNDER_REVIEW', 'REJECTED'];
+    case 'UNDER_REVIEW':
+      return ['INTERVIEW', 'HIRED', 'REJECTED'];
+    case 'INTERVIEW':
+      return ['HIRED', 'REJECTED'];
+    default:
+      return [];
+  }
 }
 
 export function getApplicationErrorMessage(error: unknown, fallback: string): string {

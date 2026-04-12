@@ -100,6 +100,13 @@ public class Application {
         addTimelineEntry(previousStatus, ApplicationStatus.WITHDRAWN, changedBy, reason);
     }
 
+    public void updateStatus(ApplicationStatus newStatus, String changedBy, String reason) {
+        ApplicationStatus previousStatus = status;
+        status = newStatus;
+        updatedAt = LocalDateTime.now();
+        addTimelineEntry(previousStatus, newStatus, changedBy, reason);
+    }
+
     @PrePersist
     void onCreate() {
         LocalDateTime now = LocalDateTime.now();

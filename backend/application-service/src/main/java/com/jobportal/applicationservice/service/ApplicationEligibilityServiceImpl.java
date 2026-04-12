@@ -24,19 +24,7 @@ public class ApplicationEligibilityServiceImpl implements ApplicationEligibility
     @Override
     public JobEligibility getEligibleJob(Long jobId) {
         try {
-            ResponseEntity<JobDetailsResponse> response = restTemplate.getForEntity(
-                    jobServiceUrl + "/api/jobs/{id}",
-                    JobDetailsResponse.class,
-                    jobId
-            );
-            JobDetailsResponse body = response.getBody();
-            if (!response.getStatusCode().is2xxSuccessful() || body == null || body.id() == null) {
-                throw new ApplicationServiceException(
-                        "APPLICATION_UPSTREAM_FAILED",
-                        "Failed to validate job via job-service",
-                        502
-                );
-            }
+            JobDetailsResponse body = getJob(jobId);
             if (!"ACTIVE".equalsIgnoreCase(body.status())) {
                 throw new ApplicationServiceException(
                         "APPLICATION_JOB_NOT_ELIGIBLE",
@@ -45,6 +33,8 @@ public class ApplicationEligibilityServiceImpl implements ApplicationEligibility
                 );
             }
             return new JobEligibility(body.id(), body.employerId(), body.title());
+        } catch (ApplicationServiceException ex) {
+            throw ex;
         } catch (HttpClientErrorException.NotFound ex) {
             throw new ApplicationServiceException(
                     "APPLICATION_JOB_NOT_FOUND",
@@ -64,5 +54,57 @@ public class ApplicationEligibilityServiceImpl implements ApplicationEligibility
                     502
             );
         }
+    }
+
+    @Override
+    public JobDetailsResponse getEmployerOwnedJob(Long jobId, String employerId) {
+        try {
+            JobDetailsResponse body = getJob(jobId);
+            if (body.employerId() == null || !body.employerId().equals(employerId)) {
+                throw new ApplicationServiceException(
+                        "APPLICATION_FORBIDDEN",
+                        "You do not have access to applications for this job",
+                        403
+                );
+            }
+            return body;
+        } catch (ApplicationServiceException ex) {
+            throw ex;
+        } catch (HttpClientErrorException.NotFound ex) {
+            throw new ApplicationServiceException(
+                    "APPLICATION_JOB_NOT_FOUND",
+                    "Job not found",
+                    404
+            );
+        } catch (HttpClientErrorException ex) {
+            throw new ApplicationServiceException(
+                    "APPLICATION_UPSTREAM_FAILED",
+                    "Failed to validate job via job-service",
+                    502
+            );
+        } catch (RestClientException ex) {
+            throw new ApplicationServiceException(
+                    "APPLICATION_UPSTREAM_FAILED",
+                    "Failed to validate job via job-service",
+                    502
+            );
+        }
+    }
+
+    private JobDetailsResponse getJob(Long jobId) {
+        ResponseEntity<JobDetailsResponse> response = restTemplate.getForEntity(
+                jobServiceUrl + "/api/jobs/{id}",
+                JobDetailsResponse.class,
+                jobId
+        );
+        JobDetailsResponse body = response.getBody();
+            if (!response.getStatusCode().is2xxSuccessful() || body == null || body.id() == null) {
+                throw new ApplicationServiceException(
+                        "APPLICATION_UPSTREAM_FAILED",
+                        "Failed to validate job via job-service",
+                        502
+                );
+            }
+        return body;
     }
 }

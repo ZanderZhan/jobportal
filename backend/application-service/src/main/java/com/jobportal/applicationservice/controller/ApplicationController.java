@@ -2,6 +2,7 @@ package com.jobportal.applicationservice.controller;
 
 import com.jobportal.applicationservice.dto.ApplicationCreateRequest;
 import com.jobportal.applicationservice.dto.ApplicationResponse;
+import com.jobportal.applicationservice.dto.ApplicationStatusUpdateRequest;
 import com.jobportal.applicationservice.service.ApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -97,5 +98,37 @@ public class ApplicationController {
             @RequestHeader(value = "X-User-Id", required = false) String studentId,
             @RequestHeader(value = "X-User-Role", required = false) String userRole) {
         return ResponseEntity.ok(applicationService.withdrawApplication(id, studentId, userRole));
+    }
+
+    @GetMapping("/jobs/{jobId}")
+    @Operation(summary = "List applications for a job owned by the authenticated employer")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Applications retrieved successfully"),
+            @ApiResponse(responseCode = "401", description = "Missing user context"),
+            @ApiResponse(responseCode = "403", description = "Only employers can access this operation"),
+            @ApiResponse(responseCode = "404", description = "Job not found")
+    })
+    public ResponseEntity<List<ApplicationResponse>> getEmployerApplicationsForJob(
+            @PathVariable Long jobId,
+            @RequestHeader(value = "X-User-Id", required = false) String employerId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        return ResponseEntity.ok(applicationService.getEmployerApplicationsForJob(jobId, employerId, userRole));
+    }
+
+    @PutMapping("/{id}/status")
+    @Operation(summary = "Update an application status as the authenticated employer")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Application status updated successfully"),
+            @ApiResponse(responseCode = "401", description = "Missing user context"),
+            @ApiResponse(responseCode = "403", description = "Only employers can access this operation"),
+            @ApiResponse(responseCode = "404", description = "Application or job not found"),
+            @ApiResponse(responseCode = "409", description = "Status transition is not allowed")
+    })
+    public ResponseEntity<ApplicationResponse> updateApplicationStatus(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Id", required = false) String employerId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
+            @Valid @RequestBody ApplicationStatusUpdateRequest request) {
+        return ResponseEntity.ok(applicationService.updateApplicationStatus(id, employerId, userRole, request));
     }
 }

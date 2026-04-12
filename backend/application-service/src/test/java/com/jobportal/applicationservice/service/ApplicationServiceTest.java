@@ -2,6 +2,7 @@ package com.jobportal.applicationservice.service;
 
 import com.jobportal.applicationservice.dto.ApplicationCreateRequest;
 import com.jobportal.applicationservice.dto.ApplicationResponse;
+import com.jobportal.applicationservice.dto.ApplicationStatusUpdateRequest;
 import com.jobportal.applicationservice.entity.Application;
 import com.jobportal.applicationservice.entity.ApplicationStatus;
 import com.jobportal.applicationservice.exception.ApplicationServiceException;
@@ -169,13 +170,14 @@ class ApplicationServiceTest {
                 .thenReturn(java.util.Optional.of(application));
         when(applicationStatusPolicyService.canWithdraw(ApplicationStatus.SUBMITTED))
                 .thenReturn(true);
+        when(applicationRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         ApplicationResponse response = applicationService.withdrawApplication(15L, "student-1", "JOB_SEEKER");
 
         assertEquals(ApplicationStatus.WITHDRAWN, response.status());
         assertEquals(2, response.timeline().size());
         assertEquals("Application withdrawn by student", response.timeline().get(1).reason());
-        verify(applicationRepository, never()).save(any());
+        verify(applicationRepository).saveAndFlush(any());
     }
 
     @Test
@@ -199,6 +201,101 @@ class ApplicationServiceTest {
         );
 
         assertEquals("APPLICATION_WITHDRAWAL_NOT_ALLOWED", ex.getErrorCode());
+        assertEquals(409, ex.getHttpStatus());
+    }
+
+    @Test
+    void getEmployerApplicationsForJob_ShouldReturnApplicationsWhenEmployerOwnsJob() {
+        Application first = Application.createSubmitted(
+                "student-1",
+                21L,
+                "employer-1",
+                "Backend Engineer",
+                "resume://student-1.pdf",
+                "student-1"
+        );
+        when(applicationRepository.findAllByJobIdOrderBySubmittedAtDesc(21L))
+                .thenReturn(List.of(first));
+        when(applicationEligibilityService.getEmployerOwnedJob(21L, "employer-1"))
+                .thenReturn(new JobDetailsResponse(21L, "employer-1", "Backend Engineer", "ACTIVE"));
+
+        List<ApplicationResponse> response = applicationService.getEmployerApplicationsForJob(21L, "employer-1", "HIRING");
+
+        assertEquals(1, response.size());
+        assertEquals(21L, response.get(0).jobId());
+        assertEquals("student-1", response.get(0).studentId());
+    }
+
+    @Test
+    void getEmployerApplicationsForJob_WhenRoleIsNotEmployer_ShouldThrowForbidden() {
+        ApplicationServiceException ex = assertThrows(
+                ApplicationServiceException.class,
+                () -> applicationService.getEmployerApplicationsForJob(21L, "student-1", "JOB_SEEKER")
+        );
+
+        assertEquals("APPLICATION_FORBIDDEN", ex.getErrorCode());
+        assertEquals(403, ex.getHttpStatus());
+    }
+
+    @Test
+    void updateApplicationStatus_WhenTransitionIsAllowed_ShouldUpdateStatusAndTimeline() {
+        Application application = Application.createSubmitted(
+                "student-1",
+                5L,
+                "employer-2",
+                "Backend Engineer",
+                "resume://student-1.pdf",
+                "student-1"
+        );
+        when(applicationRepository.findById(15L))
+                .thenReturn(java.util.Optional.of(application));
+        when(applicationEligibilityService.getEmployerOwnedJob(5L, "employer-2"))
+                .thenReturn(new JobDetailsResponse(5L, "employer-2", "Backend Engineer", "ACTIVE"));
+        when(applicationStatusPolicyService.canTransition(ApplicationStatus.SUBMITTED, ApplicationStatus.UNDER_REVIEW))
+                .thenReturn(true);
+        when(applicationRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplicationResponse response = applicationService.updateApplicationStatus(
+                15L,
+                "employer-2",
+                "HIRING",
+                new ApplicationStatusUpdateRequest(ApplicationStatus.UNDER_REVIEW, "Initial screening started")
+        );
+
+        assertEquals(ApplicationStatus.UNDER_REVIEW, response.status());
+        assertEquals(2, response.timeline().size());
+        assertEquals("Initial screening started", response.timeline().get(1).reason());
+        verify(applicationRepository).saveAndFlush(any());
+    }
+
+    @Test
+    void updateApplicationStatus_WhenTransitionIsInvalid_ShouldThrowConflict() {
+        Application application = Application.createSubmitted(
+                "student-1",
+                5L,
+                "employer-2",
+                "Backend Engineer",
+                "resume://student-1.pdf",
+                "student-1"
+        );
+        when(applicationRepository.findById(15L))
+                .thenReturn(java.util.Optional.of(application));
+        when(applicationEligibilityService.getEmployerOwnedJob(5L, "employer-2"))
+                .thenReturn(new JobDetailsResponse(5L, "employer-2", "Backend Engineer", "ACTIVE"));
+        when(applicationStatusPolicyService.canTransition(ApplicationStatus.SUBMITTED, ApplicationStatus.HIRED))
+                .thenReturn(false);
+
+        ApplicationServiceException ex = assertThrows(
+                ApplicationServiceException.class,
+                () -> applicationService.updateApplicationStatus(
+                        15L,
+                        "employer-2",
+                        "HIRING",
+                        new ApplicationStatusUpdateRequest(ApplicationStatus.HIRED, null)
+                )
+        );
+
+        assertEquals("APPLICATION_INVALID_STATUS_TRANSITION", ex.getErrorCode());
         assertEquals(409, ex.getHttpStatus());
     }
 }

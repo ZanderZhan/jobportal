@@ -13,4 +13,6 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     List<Application> findAllByStudentIdOrderBySubmittedAtDesc(String studentId);
 
     Optional<Application> findByIdAndStudentId(Long id, String studentId);
+
+    List<Application> findAllByJobIdOrderBySubmittedAtDesc(Long jobId);
 }

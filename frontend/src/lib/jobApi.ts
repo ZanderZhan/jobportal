@@ -146,6 +146,11 @@ export async function searchJobs(
   return response.data;
 }
 
+export async function searchEmployerJobs(params: JobSearchParams = {}): Promise<PagedResponse<Job>> {
+  const response = await api.get(`${JOB_API_PATH}/search?${buildSearchParams(params).toString()}`);
+  return response.data;
+}
+
 export async function getJobAutocomplete(query: string): Promise<JobAutocompleteResponse> {
   const response = await api.get('/api/search/jobs/autocomplete', {
     params: { query },

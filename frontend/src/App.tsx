@@ -10,6 +10,8 @@ import JobDetailPage from './pages/job/JobDetailPage';
 import { EmployerJobsPage } from './pages/job/EmployerJobsPage';
 import { JobFormPage } from './pages/job/JobFormPage';
 import { MyApplicationsPage } from './pages/application/MyApplicationsPage';
+import { EmployerJobApplicationsPage } from './pages/application/EmployerJobApplicationsPage';
+import { EmployerApplicationsOverviewPage } from './pages/application/EmployerApplicationsOverviewPage';
 
 function App() {
   return (
@@ -59,6 +61,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <JobFormPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employer/jobs/:id/applications"
+            element={
+              <ProtectedRoute>
+                <EmployerJobApplicationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employer/applications"
+            element={
+              <ProtectedRoute>
+                <EmployerApplicationsOverviewPage />
               </ProtectedRoute>
             }
           />

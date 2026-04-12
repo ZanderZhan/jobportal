@@ -32,7 +32,7 @@ public class SearchIndexSyncServiceImpl implements SearchIndexSyncService {
     public void upsertJob(JobResponse job) {
         URI uri = UriComponentsBuilder.fromUriString(searchServiceUrl)
             .path("/internal/search/index/jobs/{id}")
-            .build(job.getId());
+            .build(job.id());
 
         try {
             restTemplate.exchange(
@@ -42,7 +42,7 @@ public class SearchIndexSyncServiceImpl implements SearchIndexSyncService {
                 Void.class
             );
         } catch (RestClientException ex) {
-            logger.warn("Failed to sync job {} to search-service index", job.getId(), ex);
+            logger.warn("Failed to sync job {} to search-service index", job.id(), ex);
         }
     }
 

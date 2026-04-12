@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { isEmployerRole } from '../../lib/authRoles';
 import {
   type Job,
-  searchJobs,
+  searchEmployerJobs,
   deleteJob,
   formatSalary,
   formatEmploymentType,
@@ -35,7 +35,7 @@ export function EmployerJobsPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await searchJobs({
+      const response = await searchEmployerJobs({
         status: statusFilter || undefined,
         employerId: user!.id,
         page,
@@ -110,6 +110,11 @@ export function EmployerJobsPage() {
         <div className="employer-jobs-header-content">
           <h1>My Job Listings</h1>
           <p>Manage your job postings</p>
+          <div className="employer-jobs-header-actions">
+            <Link to="/dashboard" className="btn btn-secondary">
+              Homepage
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -197,6 +202,12 @@ export function EmployerJobsPage() {
                       <td>{formatDate(job.createdAt)}</td>
                       <td>
                         <div className="action-buttons">
+                          <Link
+                            to={`/employer/jobs/${job.id}/applications`}
+                            className="btn btn-sm btn-primary"
+                          >
+                            Applicants
+                          </Link>
                           <Link
                             to={`/employer/jobs/${job.id}/edit`}
                             className="btn btn-sm btn-secondary"

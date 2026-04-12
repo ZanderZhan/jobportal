@@ -1,0 +1,212 @@
+.employer-application-overview-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(0, 107, 60, 0.14), transparent 32%),
+    linear-gradient(180deg, #f5f8f5 0%, #eef4ee 100%);
+}
+
+.employer-application-overview-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.employer-application-overview-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.employer-application-overview-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6) var(--space-10);
+}
+
+.employer-application-overview-hero,
+.employer-application-overview-error,
+.employer-application-overview-empty,
+.employer-application-overview-card {
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+}
+
+.employer-application-overview-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  gap: var(--space-6);
+  padding: var(--space-7);
+  border-radius: 28px;
+}
+
+.employer-application-overview-kicker {
+  display: inline-flex;
+  margin-bottom: var(--space-3);
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.employer-application-overview-hero h1 {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3vw, 2.8rem);
+  line-height: 1.05;
+}
+
+.employer-application-overview-hero p {
+  margin: 0;
+  max-width: 44rem;
+  color: var(--gray-600);
+  line-height: 1.6;
+}
+
+.employer-application-overview-stats {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.employer-application-overview-stat {
+  padding: var(--space-4);
+  border-radius: 22px;
+  background: rgba(0, 107, 60, 0.08);
+}
+
+.employer-application-overview-stat strong {
+  display: block;
+  font-size: 1.75rem;
+  color: var(--gray-900);
+}
+
+.employer-application-overview-stat span {
+  color: var(--gray-600);
+  font-size: 0.95rem;
+}
+
+.employer-application-overview-error,
+.employer-application-overview-empty {
+  margin-top: var(--space-6);
+  padding: var(--space-7);
+  border-radius: 24px;
+  text-align: center;
+}
+
+.employer-application-overview-error h2,
+.employer-application-overview-empty h1,
+.employer-application-overview-empty h2 {
+  margin: 0 0 var(--space-3);
+}
+
+.employer-application-overview-error p,
+.employer-application-overview-empty p {
+  margin: 0;
+  color: var(--gray-600);
+}
+
+.employer-application-overview-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.employer-application-overview-grid {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: var(--space-6);
+}
+
+.employer-application-overview-card {
+  padding: var(--space-6);
+  border-radius: 24px;
+}
+
+.employer-application-overview-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.employer-application-overview-card-top h2 {
+  margin: 0 0 var(--space-2);
+  font-size: 1.25rem;
+}
+
+.employer-application-overview-card-top p {
+  margin: 0;
+  color: var(--gray-500);
+}
+
+.employer-application-overview-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0 0 var(--space-4);
+}
+
+.employer-application-overview-card-grid dt {
+  margin-bottom: var(--space-1);
+  color: var(--gray-500);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.employer-application-overview-card-grid dd {
+  margin: 0;
+  color: var(--gray-900);
+}
+
+.employer-application-overview-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.employer-application-overview-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--gray-700);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.employer-application-overview-card .employer-application-overview-actions {
+  justify-content: flex-start;
+  margin-top: 0;
+}
+
+@media (max-width: 960px) {
+  .employer-application-overview-topbar-actions,
+  .employer-application-overview-hero,
+  .employer-application-overview-grid,
+  .employer-application-overview-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .employer-application-overview-topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 720px) {
+  .employer-application-overview-shell {
+    padding: var(--space-6) var(--space-4) var(--space-8);
+  }
+
+  .employer-application-overview-card-top,
+  .employer-application-overview-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

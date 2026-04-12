@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.jobportal.applicationservice.dto.ApplicationCreateRequest;
 import com.jobportal.applicationservice.dto.ApplicationResponse;
+import com.jobportal.applicationservice.dto.ApplicationStatusUpdateRequest;
 import com.jobportal.applicationservice.dto.ApplicationTimelineEntryResponse;
 import com.jobportal.applicationservice.entity.ApplicationStatus;
 import com.jobportal.applicationservice.exception.GlobalExceptionHandler;
@@ -172,5 +173,66 @@ class ApplicationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("WITHDRAWN"))
                 .andExpect(jsonPath("$.timeline[1].newStatus").value("WITHDRAWN"));
+    }
+
+    @Test
+    void getEmployerApplicationsForJob_ShouldReturnApplications() throws Exception {
+        when(applicationService.getEmployerApplicationsForJob(1L, "employer-1", "HIRING"))
+                .thenReturn(List.of(applicationResponse));
+
+        mockMvc.perform(get("/api/applications/jobs/1")
+                        .header("X-User-Id", "employer-1")
+                        .header("X-User-Role", "HIRING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(10))
+                .andExpect(jsonPath("$[0].jobId").value(1));
+    }
+
+    @Test
+    void updateApplicationStatus_ShouldReturnUpdatedApplication() throws Exception {
+        ApplicationResponse updatedResponse = new ApplicationResponse(
+                10L,
+                "student-1",
+                1L,
+                "employer-1",
+                "Software Engineer",
+                "resume://student-1.pdf",
+                ApplicationStatus.UNDER_REVIEW,
+                LocalDateTime.of(2026, 4, 11, 10, 30),
+                LocalDateTime.of(2026, 4, 12, 14, 0),
+                List.of(
+                        new ApplicationTimelineEntryResponse(
+                                100L,
+                                null,
+                                ApplicationStatus.SUBMITTED,
+                                "student-1",
+                                "Application submitted",
+                                LocalDateTime.of(2026, 4, 11, 10, 30)
+                        ),
+                        new ApplicationTimelineEntryResponse(
+                                101L,
+                                ApplicationStatus.SUBMITTED,
+                                ApplicationStatus.UNDER_REVIEW,
+                                "employer-1",
+                                "Initial screening started",
+                                LocalDateTime.of(2026, 4, 12, 14, 0)
+                        )
+                )
+        );
+
+        when(applicationService.updateApplicationStatus(eq(10L), eq("employer-1"), eq("HIRING"), any(ApplicationStatusUpdateRequest.class)))
+                .thenReturn(updatedResponse);
+
+        mockMvc.perform(put("/api/applications/10/status")
+                        .header("X-User-Id", "employer-1")
+                        .header("X-User-Role", "HIRING")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ApplicationStatusUpdateRequest(
+                                ApplicationStatus.UNDER_REVIEW,
+                                "Initial screening started"
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UNDER_REVIEW"))
+                .andExpect(jsonPath("$.timeline[1].reason").value("Initial screening started"));
     }
 }

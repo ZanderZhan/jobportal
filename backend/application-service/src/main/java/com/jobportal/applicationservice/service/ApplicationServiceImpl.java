@@ -2,7 +2,9 @@ package com.jobportal.applicationservice.service;
 
 import com.jobportal.applicationservice.dto.ApplicationCreateRequest;
 import com.jobportal.applicationservice.dto.ApplicationResponse;
+import com.jobportal.applicationservice.dto.ApplicationStatusUpdateRequest;
 import com.jobportal.applicationservice.entity.Application;
+import com.jobportal.applicationservice.entity.ApplicationStatus;
 import com.jobportal.applicationservice.exception.ApplicationServiceException;
 import com.jobportal.applicationservice.repository.ApplicationRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -17,6 +19,8 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     private static final String STUDENT_ROLE = "STUDENT";
     private static final String JOB_SEEKER_ROLE = "JOB_SEEKER";
+    private static final String EMPLOYER_ROLE = "EMPLOYER";
+    private static final String HIRING_ROLE = "HIRING";
 
     private final ApplicationRepository applicationRepository;
     private final ApplicationEligibilityService applicationEligibilityService;
@@ -103,7 +107,52 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
 
         application.withdraw(normalizedStudentId, "Application withdrawn by student");
-        return ApplicationResponse.fromEntity(application);
+        Application savedApplication = applicationRepository.saveAndFlush(application);
+        return ApplicationResponse.fromEntity(savedApplication);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ApplicationResponse> getEmployerApplicationsForJob(Long jobId, String employerId, String userRole) {
+        String normalizedEmployerId = requireEmployerContext(employerId, userRole);
+        applicationEligibilityService.getEmployerOwnedJob(jobId, normalizedEmployerId);
+        return applicationRepository.findAllByJobIdOrderBySubmittedAtDesc(jobId)
+                .stream()
+                .map(ApplicationResponse::fromEntity)
+                .toList();
+    }
+
+    @Override
+    public ApplicationResponse updateApplicationStatus(
+            Long applicationId,
+            String employerId,
+            String userRole,
+            ApplicationStatusUpdateRequest request) {
+        String normalizedEmployerId = requireEmployerContext(employerId, userRole);
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ApplicationServiceException(
+                        "APPLICATION_NOT_FOUND",
+                        "Application not found",
+                        404
+                ));
+
+        applicationEligibilityService.getEmployerOwnedJob(application.getJobId(), normalizedEmployerId);
+
+        if (!applicationStatusPolicyService.canTransition(application.getStatus(), request.status())) {
+            throw new ApplicationServiceException(
+                    "APPLICATION_INVALID_STATUS_TRANSITION",
+                    "This status transition is not allowed",
+                    409
+            );
+        }
+
+        application.updateStatus(
+                request.status(),
+                normalizedEmployerId,
+                buildEmployerReason(application.getStatus(), request.status(), request.reason())
+        );
+        Application savedApplication = applicationRepository.saveAndFlush(application);
+        return ApplicationResponse.fromEntity(savedApplication);
     }
 
     private Application findStudentApplication(Long applicationId, String studentId) {
@@ -135,6 +184,36 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
 
         return normalizedStudentId;
+    }
+
+    private String requireEmployerContext(String employerId, String userRole) {
+        String normalizedEmployerId = normalize(employerId);
+        String normalizedRole = normalize(userRole);
+
+        if (normalizedEmployerId == null || normalizedRole == null) {
+            throw new ApplicationServiceException(
+                    "APPLICATION_UNAUTHORIZED",
+                    "Authenticated user context is required",
+                    401
+            );
+        }
+        if (!EMPLOYER_ROLE.equalsIgnoreCase(normalizedRole) && !HIRING_ROLE.equalsIgnoreCase(normalizedRole)) {
+            throw new ApplicationServiceException(
+                    "APPLICATION_FORBIDDEN",
+                    "Only employers can access this operation",
+                    403
+            );
+        }
+
+        return normalizedEmployerId;
+    }
+
+    private String buildEmployerReason(ApplicationStatus currentStatus, ApplicationStatus nextStatus, String reason) {
+        String normalizedReason = normalize(reason);
+        if (normalizedReason != null) {
+            return normalizedReason;
+        }
+        return "Status updated from " + currentStatus + " to " + nextStatus;
     }
 
     private String normalize(String value) {
