@@ -21,6 +21,9 @@ public class RouteConfig {
     @Value("${services.profile-service.url:http://localhost:8085}")
     private String profileServiceUrl;
 
+    @Value("${services.notification-service.url:http://localhost:8086}")
+    private String notificationServiceUrl;
+
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
@@ -36,6 +39,12 @@ public class RouteConfig {
             .route("profile-service", r -> r
                 .path("/api/profiles/**")
                 .uri(profileServiceUrl))
+            .route("notification-service-user", r -> r
+                .path("/api/notifications/**", "/api/notification-preferences/**")
+                .uri(notificationServiceUrl))
+            .route("notification-service-admin", r -> r
+                .path("/api/admin/notifications/**", "/api/notification-templates/**")
+                .uri(notificationServiceUrl))
             .build();
     }
 }

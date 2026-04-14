@@ -10,6 +10,10 @@ public class TemplateRenderingService {
     // A small token replacement is enough for the current assignment scope.
     public String render(String template, Map<String, String> templateData) {
         String rendered = template;
+        if (templateData == null) {
+            return rendered;
+        }
+
         for (Map.Entry<String, String> entry : templateData.entrySet()) {
             rendered = rendered.replace("#{" + entry.getKey() + "}", entry.getValue());
         }
