@@ -26,7 +26,7 @@ A full-stack job portal platform for students and employers. Users can browse an
 - `message-broker` (port 8083)
 - `application-service` (port 8084)
 - `profile-service` (port 8085)
-- `notification-service` (port 8085)
+- `notification-service` (port 8086)
 
 ## Requirements
 
