@@ -1,7 +1,6 @@
 package com.jobportal.messagebroker.config;
 
 import com.jobportal.messagebroker.contract.ApplicationStatusChangedEvent;
-import com.jobportal.messagebroker.contract.ApplicationWithdrawnEvent;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.Declarable;
@@ -73,11 +72,6 @@ class BrokerTopologyConfigurationTest {
         ));
         assertTrue(declarables.stream().anyMatch(declarable ->
                 declarable instanceof Binding binding
-                        && BrokerTopology.APPLICATION_WITHDRAWN_QUEUE.equals(binding.getDestination())
-                        && BrokerTopology.APPLICATION_WITHDRAWN_ROUTING_KEY.equals(binding.getRoutingKey())
-        ));
-        assertTrue(declarables.stream().anyMatch(declarable ->
-                declarable instanceof Binding binding
                         && BrokerTopology.JOB_POSTED_QUEUE.equals(binding.getDestination())
                         && BrokerTopology.JOB_POSTED_ROUTING_KEY.equals(binding.getRoutingKey())
         ));
@@ -92,9 +86,6 @@ class BrokerTopologyConfigurationTest {
     void shouldSerializeApplicationStatusChangedEventAsJson() {
         ApplicationStatusChangedEvent event = new ApplicationStatusChangedEvent(
                 99L,
-                "student-4",
-                "employer-2",
-                31L,
                 "UNDER_REVIEW",
                 "INTERVIEW",
                 Instant.parse("2026-04-07T20:15:30Z")
@@ -107,32 +98,8 @@ class BrokerTopologyConfigurationTest {
 
         assertTrue(message.getMessageProperties().getContentType().startsWith("application/json"));
         assertTrue(json.contains("\"applicationId\":99"));
-        assertTrue(json.contains("\"studentId\":\"student-4\""));
-        assertTrue(json.contains("\"employerId\":\"employer-2\""));
-        assertTrue(json.contains("\"jobId\":31"));
         assertTrue(json.contains("\"oldStatus\":\"UNDER_REVIEW\""));
         assertTrue(json.contains("\"newStatus\":\"INTERVIEW\""));
         assertTrue(json.contains("\"timestamp\":\"2026-04-07T20:15:30Z\""));
-    }
-
-    @Test
-    void shouldSerializeApplicationWithdrawnEventAsJson() {
-        ApplicationWithdrawnEvent event = new ApplicationWithdrawnEvent(
-                77L,
-                "student-7",
-                19L,
-                Instant.parse("2026-04-12T15:20:00Z")
-        );
-
-        MessageProperties messageProperties = new MessageProperties();
-        Message message = rabbitMessageConverter.toMessage(event, messageProperties);
-
-        String json = new String(message.getBody(), StandardCharsets.UTF_8);
-
-        assertTrue(message.getMessageProperties().getContentType().startsWith("application/json"));
-        assertTrue(json.contains("\"applicationId\":77"));
-        assertTrue(json.contains("\"studentId\":\"student-7\""));
-        assertTrue(json.contains("\"jobId\":19"));
-        assertTrue(json.contains("\"timestamp\":\"2026-04-12T15:20:00Z\""));
     }
 }

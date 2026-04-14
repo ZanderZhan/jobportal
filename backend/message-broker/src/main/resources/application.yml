@@ -26,7 +26,3 @@ management:
 logging:
   level:
     com.jobportal.messagebroker: INFO
-
-broker:
-  topology:
-    endpoint-enabled: ${BROKER_TOPOLOGY_ENDPOINT_ENABLED:false}
