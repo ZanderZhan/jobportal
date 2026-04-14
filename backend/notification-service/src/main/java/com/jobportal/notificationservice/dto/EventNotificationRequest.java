@@ -8,8 +8,9 @@ import java.util.Map;
 public record EventNotificationRequest(
         String eventKey,
         NotificationEventType eventType,
-        Long recipientUserId,
+        String recipientUserId,
         String recipientEmail,
+        String recipientName,
         Instant occurredAt,
         Map<String, String> templateData
 ) {

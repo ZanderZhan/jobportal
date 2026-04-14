@@ -4,7 +4,7 @@ import java.time.Instant;
 
 // This event is raised when an employer becomes verified.
 public record EmployerVerifiedEvent(
-        Long employerId,
+        String employerId,
         String verificationStatus,
         Instant timestamp
 ) {

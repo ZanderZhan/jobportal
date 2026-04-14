@@ -16,4 +16,6 @@ public interface NotificationTemplateRepository extends JpaRepository<Notificati
     );
 
     List<NotificationTemplate> findByActiveTrueOrderByEventTypeAscChannelAsc();
+
+    long countByActiveTrue();
 }

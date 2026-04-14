@@ -9,13 +9,17 @@ public record NotificationResponse(
         Long id,
         String eventKey,
         NotificationEventType eventType,
-        Long recipientUserId,
+        String recipientUserId,
         String recipientEmail,
+        String recipientName,
         String title,
         String body,
+        boolean actionRequired,
         NotificationStatus status,
         boolean read,
         Instant createdAt,
-        Instant readAt
+        Instant readAt,
+        String lastDeliveryError,
+        Instant nextRetryAt
 ) {
 }

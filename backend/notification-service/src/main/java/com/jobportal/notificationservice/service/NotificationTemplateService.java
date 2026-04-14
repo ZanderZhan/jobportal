@@ -2,6 +2,8 @@ package com.jobportal.notificationservice.service;
 
 import com.jobportal.notificationservice.dto.CreateTemplateRequest;
 import com.jobportal.notificationservice.dto.NotificationTemplateResponse;
+import com.jobportal.notificationservice.dto.TemplatePreviewRequest;
+import com.jobportal.notificationservice.dto.TemplatePreviewResponse;
 import com.jobportal.notificationservice.entity.DeliveryChannel;
 import com.jobportal.notificationservice.entity.NotificationEventType;
 import com.jobportal.notificationservice.entity.NotificationTemplate;
@@ -18,9 +20,17 @@ import java.util.Optional;
 public class NotificationTemplateService {
 
     private final NotificationTemplateRepository templateRepository;
+    private final TemplateRenderingService templateRenderingService;
+    private final NotificationMapper notificationMapper;
 
-    public NotificationTemplateService(NotificationTemplateRepository templateRepository) {
+    public NotificationTemplateService(
+            NotificationTemplateRepository templateRepository,
+            TemplateRenderingService templateRenderingService,
+            NotificationMapper notificationMapper
+    ) {
         this.templateRepository = templateRepository;
+        this.templateRenderingService = templateRenderingService;
+        this.notificationMapper = notificationMapper;
     }
 
     @Transactional(readOnly = true)
@@ -37,28 +47,36 @@ public class NotificationTemplateService {
     @Transactional(readOnly = true)
     public List<NotificationTemplateResponse> getActiveTemplates() {
         return templateRepository.findByActiveTrueOrderByEventTypeAscChannelAsc().stream()
-                .map(this::toResponse)
+                .map(notificationMapper::toTemplateResponse)
                 .toList();
     }
 
     public NotificationTemplateResponse createTemplate(CreateTemplateRequest request) {
+        templateRepository.findByEventTypeAndChannelAndActiveTrue(request.eventType(), request.channel())
+                .ifPresent(existingTemplate -> existingTemplate.setActive(false));
+
         NotificationTemplate template = new NotificationTemplate();
         template.setEventType(request.eventType());
         template.setChannel(request.channel());
         template.setSubjectTemplate(request.subjectTemplate());
         template.setBodyTemplate(request.bodyTemplate());
         template.setActive(true);
-        return toResponse(templateRepository.save(template));
+        return notificationMapper.toTemplateResponse(templateRepository.save(template));
     }
 
-    private NotificationTemplateResponse toResponse(NotificationTemplate template) {
-        return new NotificationTemplateResponse(
-                template.getId(),
-                template.getEventType(),
-                template.getChannel(),
-                template.getSubjectTemplate(),
-                template.getBodyTemplate(),
-                template.isActive()
+    @Transactional(readOnly = true)
+    public TemplatePreviewResponse previewTemplate(TemplatePreviewRequest request) {
+        NotificationTemplate template = getActiveTemplate(request.eventType(), request.channel());
+        return new TemplatePreviewResponse(
+                request.eventType(),
+                request.channel(),
+                templateRenderingService.render(template.getSubjectTemplate(), request.templateData()),
+                templateRenderingService.render(template.getBodyTemplate(), request.templateData())
         );
+    }
+
+    @Transactional(readOnly = true)
+    public long countActiveTemplates() {
+        return templateRepository.countByActiveTrue();
     }
 }
