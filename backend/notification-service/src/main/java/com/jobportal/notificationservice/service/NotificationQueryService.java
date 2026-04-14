@@ -20,6 +20,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -55,6 +56,8 @@ public class NotificationQueryService {
         this.recipientIdentityService = recipientIdentityService;
     }
 
+    private static final int MAX_PAGE_SIZE = 100;
+
     public NotificationPageResponse getNotificationsForUser(
             String recipientUserId,
             NotificationStatus status,
@@ -64,7 +67,7 @@ public class NotificationQueryService {
             int page,
             int size
     ) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE), Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Specification<Notification> specification = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -122,13 +125,13 @@ public class NotificationQueryService {
                 recipientUserId,
                 recipient.email(),
                 recipient.name(),
-                recipient.email() != null && !recipient.email().isBlank(),
+                StringUtils.hasText(recipient.email()),
                 getSummaryForUser(recipientUserId)
         );
     }
 
     public NotificationPageResponse getFailedNotifications(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE), Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Notification> failedNotifications = notificationRepository.findByStatusOrderByCreatedAtDesc(NotificationStatus.FAILED, pageable);
 
         return new NotificationPageResponse(
