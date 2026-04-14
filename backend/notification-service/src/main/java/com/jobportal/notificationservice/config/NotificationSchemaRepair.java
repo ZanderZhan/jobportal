@@ -10,11 +10,13 @@ import org.springframework.stereotype.Component;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.regex.Pattern;
 
 @Component
 public class NotificationSchemaRepair {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationSchemaRepair.class);
+    private static final Pattern SAFE_SQL_IDENTIFIER = Pattern.compile("[a-zA-Z0-9_]+");
 
     private final DataSource dataSource;
     private final JdbcTemplate jdbcTemplate;
@@ -92,6 +94,10 @@ public class NotificationSchemaRepair {
     }
 
     private void dropConstraintIfExists(String tableName, String constraintName) {
+        if (!SAFE_SQL_IDENTIFIER.matcher(tableName).matches() || !SAFE_SQL_IDENTIFIER.matcher(constraintName).matches()) {
+            log.warn("Skipping schema repair: unsafe identifier detected (table={}, constraint={})", tableName, constraintName);
+            return;
+        }
         jdbcTemplate.execute("alter table " + tableName + " drop constraint if exists " + constraintName);
     }
 }
