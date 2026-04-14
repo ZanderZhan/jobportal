@@ -77,6 +77,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       JOB_SERVICE_URL: http://job-service:8081
+      APPLICATION_SERVICE_URL: http://application-service:8084
+      PROFILE_SERVICE_URL: http://profile-service:8085
       AUTH_SERVICE_URL: http://auth-service:8082
       CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost
       AUTH_JWK_SET_URI: http://auth-service:8082/.well-known/jwks.json
@@ -84,6 +86,10 @@ services:
       auth-service:
         condition: service_healthy
       job-service:
+        condition: service_healthy
+      application-service:
+        condition: service_healthy
+      profile-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
@@ -114,6 +120,56 @@ services:
       retries: 3
       start_period: 40s
 
+  application-service:
+    build:
+      context: ./backend/application-service
+      dockerfile: Dockerfile
+    container_name: application-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jobportal
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: jobportal
+      SPRING_RABBITMQ_PASSWORD: jobportal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  profile-service:
+    build:
+      context: ./backend/profile-service
+      dockerfile: Dockerfile
+    container_name: profile-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jobportal
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   auth-service:
     build:
       context: ./backend/auth-service
@@ -130,7 +186,7 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_REDIRECT_URI: http://localhost/auth/callback
+      GOOGLE_REDIRECT_URI: ${BACKEND_URL:-http://localhost:8082}/api/auth/google/callback
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}

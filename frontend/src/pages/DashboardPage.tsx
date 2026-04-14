@@ -1,11 +1,14 @@
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { isEmployerRole } from '../lib/authRoles';
 import '../styles/dashboard.css';
 import '../styles/utilities.css';
 
 export function DashboardPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const isEmployer = isEmployerRole(user?.role, user?.userType);
 
   const handleLogout = async () => {
     await logout();
@@ -55,84 +58,170 @@ export function DashboardPage() {
                 Welcome back,{' '}
                 <span className="text-primary">{user?.name?.split(' ')[0]}</span>
               </h1>
-              <p className="dashboard-welcome-sub">Your career journey continues here</p>
+              <p className="dashboard-welcome-sub">
+                {isEmployer ? 'Manage your job listings and find talent' : 'Your career journey continues here'}
+              </p>
             </div>
           </div>
 
           <div className="animate-fade-up-2 dashboard-stats-row">
-            <div className="solid-card dashboard-stat-card">
-              <div className="dashboard-stat-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.8" strokeLinecap="round">
-                  <rect x="2" y="7" width="20" height="14" rx="2" />
-                  <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-                </svg>
-              </div>
-              <div>
-                <p className="dashboard-stat-value">0</p>
-                <p className="dashboard-stat-label">Active applications</p>
-              </div>
-            </div>
+            {isEmployer ? (
+              <>
+                <div className="solid-card dashboard-stat-card">
+                  <div className="dashboard-stat-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.8" strokeLinecap="round">
+                      <rect x="2" y="7" width="20" height="14" rx="2" />
+                      <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="dashboard-stat-value">0</p>
+                    <p className="dashboard-stat-label">Active job listings</p>
+                  </div>
+                </div>
 
-            <div className="solid-card dashboard-stat-card">
-              <div className="dashboard-stat-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.8" strokeLinecap="round">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-              </div>
-              <div>
-                <p className="dashboard-stat-value">0</p>
-                <p className="dashboard-stat-label">Messages</p>
-              </div>
-            </div>
+                <div className="solid-card dashboard-stat-card">
+                  <div className="dashboard-stat-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.8" strokeLinecap="round">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="dashboard-stat-value">0</p>
+                    <p className="dashboard-stat-label">Applications received</p>
+                  </div>
+                </div>
 
-            <div className="solid-card dashboard-stat-card">
-              <div className="dashboard-stat-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.8" strokeLinecap="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12,6 12,12 16,14" />
-                </svg>
-              </div>
-              <div>
-                <p className="dashboard-stat-value">0</p>
-                <p className="dashboard-stat-label">Interviews</p>
-              </div>
-            </div>
+                <div className="solid-card dashboard-stat-card">
+                  <div className="dashboard-stat-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.8" strokeLinecap="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="dashboard-stat-value">0</p>
+                    <p className="dashboard-stat-label">Messages</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="solid-card dashboard-stat-card">
+                  <div className="dashboard-stat-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.8" strokeLinecap="round">
+                      <rect x="2" y="7" width="20" height="14" rx="2" />
+                      <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="dashboard-stat-value">0</p>
+                    <p className="dashboard-stat-label">Active applications</p>
+                  </div>
+                </div>
+
+                <div className="solid-card dashboard-stat-card">
+                  <div className="dashboard-stat-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.8" strokeLinecap="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="dashboard-stat-value">0</p>
+                    <p className="dashboard-stat-label">Messages</p>
+                  </div>
+                </div>
+
+                <div className="solid-card dashboard-stat-card">
+                  <div className="dashboard-stat-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.8" strokeLinecap="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12,6 12,12 16,14" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="dashboard-stat-value">0</p>
+                    <p className="dashboard-stat-label">Interviews</p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="animate-fade-up-3 dashboard-actions-section">
             <h2 className="dashboard-section-title">Quick actions</h2>
             <div className="dashboard-actions-grid">
-              <button className="solid-card dashboard-action-card" onClick={() => navigate('/jobs')}>
-                <div className="dashboard-action-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                </div>
-                <span className="dashboard-action-label">Browse jobs</span>
-              </button>
+              {isEmployer ? (
+                <>
+                  <button className="solid-card dashboard-action-card" onClick={() => navigate('/employer/jobs')}>
+                    <div className="dashboard-action-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                        <rect x="2" y="7" width="20" height="14" rx="2" />
+                        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                      </svg>
+                    </div>
+                    <span className="dashboard-action-label">Manage jobs</span>
+                  </button>
 
-              <button className="solid-card dashboard-action-card">
-                <div className="dashboard-action-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14,2 14,8 20,8" />
-                    <line x1="12" y1="18" x2="12" y2="12" />
-                    <line x1="9" y1="15" x2="15" y2="15" />
-                  </svg>
-                </div>
-                <span className="dashboard-action-label">My applications</span>
-              </button>
+                  <button className="solid-card dashboard-action-card" onClick={() => navigate('/employer/jobs/new')}>
+                    <div className="dashboard-action-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                    </div>
+                    <span className="dashboard-action-label">Post new job</span>
+                  </button>
 
-              <button className="solid-card dashboard-action-card">
-                <div className="dashboard-action-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                </div>
-                <span className="dashboard-action-label">Profile</span>
-              </button>
+                  <button className="solid-card dashboard-action-card" onClick={() => navigate('/employer/applications')}>
+                    <div className="dashboard-action-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                    </div>
+                    <span className="dashboard-action-label">View applicants</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="solid-card dashboard-action-card" onClick={() => navigate('/jobs')}>
+                    <div className="dashboard-action-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                    </div>
+                    <span className="dashboard-action-label">Browse jobs</span>
+                  </button>
+
+                  <button className="solid-card dashboard-action-card" onClick={() => navigate('/applications')}>
+                    <div className="dashboard-action-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14,2 14,8 20,8" />
+                        <line x1="12" y1="18" x2="12" y2="12" />
+                        <line x1="9" y1="15" x2="15" y2="15" />
+                      </svg>
+                    </div>
+                    <span className="dashboard-action-label">My applications</span>
+                  </button>
+
+                  <button className="solid-card dashboard-action-card" onClick={() => navigate('/profile')}>
+                    <div className="dashboard-action-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </div>
+                    <span className="dashboard-action-label">Profile</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

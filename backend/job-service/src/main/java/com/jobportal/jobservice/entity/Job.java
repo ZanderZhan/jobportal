@@ -1,12 +1,17 @@
 package com.jobportal.jobservice.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
 @Table(name = "jobs")
+@Getter
+@Setter
 public class Job {
 
     @Id
@@ -42,6 +47,9 @@ public class Job {
     @Column(name = "requirement")
     private List<String> requirements;
 
+    @Column(name = "employer_id")
+    private String employerId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private JobStatus status = JobStatus.DRAFT;
@@ -71,108 +79,4 @@ public class Job {
         updatedAt = LocalDateTime.now();
     }
 
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public String getCompany() {
-        return company;
-    }
-
-    public void setCompany(String company) {
-        this.company = company;
-    }
-
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
-    public EmploymentType getEmploymentType() {
-        return employmentType;
-    }
-
-    public void setEmploymentType(EmploymentType employmentType) {
-        this.employmentType = employmentType;
-    }
-
-    public BigDecimal getSalaryMin() {
-        return salaryMin;
-    }
-
-    public void setSalaryMin(BigDecimal salaryMin) {
-        this.salaryMin = salaryMin;
-    }
-
-    public BigDecimal getSalaryMax() {
-        return salaryMax;
-    }
-
-    public void setSalaryMax(BigDecimal salaryMax) {
-        this.salaryMax = salaryMax;
-    }
-
-    public String getSalaryCurrency() {
-        return salaryCurrency;
-    }
-
-    public void setSalaryCurrency(String salaryCurrency) {
-        this.salaryCurrency = salaryCurrency;
-    }
-
-    public List<String> getRequirements() {
-        return requirements;
-    }
-
-    public void setRequirements(List<String> requirements) {
-        this.requirements = requirements;
-    }
-
-    public JobStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(JobStatus status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
 }

@@ -1,14 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getJobById, type Job, formatSalary, formatEmploymentType, formatDate } from '../../lib/jobApi';
+import { useAuth } from '../../hooks/useAuth';
+import { isEmployerRole, isStudentRole } from '../../lib/authRoles';
+import { createApplication, getApplicationErrorMessage } from '../../lib/applicationApi';
+import { getJobById, deleteJob, type Job, formatSalary, formatEmploymentType, formatDate } from '../../lib/jobApi';
 import './JobDetailPage.css';
 
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedResumeFile, setSelectedResumeFile] = useState<File | null>(null);
+  const [applicationError, setApplicationError] = useState<string | null>(null);
+  const [applicationSuccess, setApplicationSuccess] = useState<string | null>(null);
+  const [isSubmittingApplication, setIsSubmittingApplication] = useState(false);
+
+  const isJobOwner = isAuthenticated && isEmployerRole(user?.role, user?.userType) && !!job && !!user && job.employerId === user.id;
+  const isStudent = isStudentRole(user?.role, user?.userType);
 
   useEffect(() => {
     async function fetchJob() {
@@ -29,6 +42,62 @@ export default function JobDetailPage() {
     
     fetchJob();
   }, [id]);
+
+  const handleDelete = async () => {
+    if (!id) return;
+    try {
+      setIsDeleting(true);
+      await deleteJob(parseInt(id));
+      navigate('/employer/jobs');
+    } catch (err) {
+      setError('Failed to delete job');
+      console.error(err);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  const handleApply = async () => {
+    if (!job) {
+      return;
+    }
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    if (!isStudent) {
+      setApplicationError('Only student accounts can submit applications.');
+      return;
+    }
+    if (!selectedResumeFile || !user?.id) {
+      setApplicationError('Please upload your resume before submitting the application.');
+      return;
+    }
+
+    setIsSubmittingApplication(true);
+    setApplicationError(null);
+    setApplicationSuccess(null);
+    try {
+      await createApplication({
+        jobId: job.id,
+        resumeReference: buildResumeReference(user.id, selectedResumeFile),
+      });
+      setApplicationSuccess('Application submitted. You can now track it from My Applications.');
+      setSelectedResumeFile(null);
+    } catch (requestError) {
+      setApplicationError(getApplicationErrorMessage(requestError, 'Failed to submit application.'));
+    } finally {
+      setIsSubmittingApplication(false);
+    }
+  };
+
+  const handleResumeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setSelectedResumeFile(file);
+    setApplicationError(null);
+    setApplicationSuccess(null);
+  };
 
   if (loading) {
     return (
@@ -67,6 +136,39 @@ export default function JobDetailPage() {
           </svg>
           Back
         </button>
+
+        {isJobOwner && (
+          <div className="employer-actions">
+            <Link to={`/employer/jobs/${id}/edit`} className="btn btn-secondary">
+              Edit Job
+            </Link>
+            {showDeleteConfirm ? (
+              <div className="delete-confirm-inline">
+                <span>Delete this job?</span>
+                <button
+                  onClick={handleDelete}
+                  className="btn btn-danger"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="btn btn-danger-outline"
+              >
+                Delete Job
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="job-detail-container">
@@ -162,13 +264,60 @@ export default function JobDetailPage() {
         <aside className="job-detail-sidebar">
           <div className="job-apply-card">
             <h3>Interested in this job?</h3>
-            <p>Submit your application and take the next step in your career.</p>
-            <button className="btn btn-primary btn-lg">
-              Apply Now
-            </button>
+            {isJobOwner ? (
+              <p>You own this posting, so applications are managed from the employer workflow instead.</p>
+            ) : !isAuthenticated ? (
+              <>
+                <p>Sign in as a student to submit an application and track its status.</p>
+                <button className="btn btn-primary btn-lg" onClick={() => navigate('/login')}>
+                  Sign In To Apply
+                </button>
+              </>
+            ) : !isStudent ? (
+              <p>Only student accounts can submit applications for open roles.</p>
+            ) : (
+              <>
+                <p>Submit your application and start tracking it from your student dashboard.</p>
+                <label className="job-apply-field">
+                  <span>Upload resume</span>
+                  <div className="job-apply-upload">
+                    <input
+                      id="job-resume-upload"
+                      className="job-apply-upload-input"
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      onChange={handleResumeChange}
+                    />
+                    <label htmlFor="job-resume-upload" className="btn btn-secondary">
+                      Choose Resume
+                    </label>
+                    <span className="job-apply-upload-text">
+                      {selectedResumeFile ? selectedResumeFile.name : 'PDF, DOC, or DOCX'}
+                    </span>
+                  </div>
+                </label>
+                {applicationError && <p className="job-apply-error">{applicationError}</p>}
+                {applicationSuccess && <p className="job-apply-success">{applicationSuccess}</p>}
+                <button
+                  className="btn btn-primary btn-lg"
+                  onClick={handleApply}
+                  disabled={isSubmittingApplication}
+                >
+                  {isSubmittingApplication ? 'Submitting...' : 'Apply Now'}
+                </button>
+                <button className="btn btn-secondary" onClick={() => navigate('/applications')}>
+                  View My Applications
+                </button>
+              </>
+            )}
           </div>
         </aside>
       </div>
     </div>
   );
+}
+
+function buildResumeReference(userId: string, file: File) {
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+  return `upload://${userId}/${Date.now()}-${sanitizedName}`;
 }

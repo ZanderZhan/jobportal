@@ -48,40 +48,41 @@ class JobControllerTest {
     void setUp() {
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
-        
-        testJobResponse = new JobResponse();
-        testJobResponse.setId(1L);
-        testJobResponse.setTitle("Software Engineer");
-        testJobResponse.setDescription("Build amazing software");
-        testJobResponse.setCompany("Tech Corp");
-        testJobResponse.setLocation("San Francisco, CA");
-        testJobResponse.setEmploymentType(EmploymentType.FULL_TIME);
-        testJobResponse.setSalaryMin(new BigDecimal("80000"));
-        testJobResponse.setSalaryMax(new BigDecimal("120000"));
-        testJobResponse.setSalaryCurrency("USD");
-        testJobResponse.setRequirements(Arrays.asList("Java", "Spring Boot"));
-        testJobResponse.setStatus(JobStatus.ACTIVE);
-        testJobResponse.setCreatedAt(LocalDateTime.now());
-        testJobResponse.setUpdatedAt(LocalDateTime.now());
 
-        testJobRequest = new JobRequest();
-        testJobRequest.setTitle("Software Engineer");
-        testJobRequest.setDescription("Build amazing software");
-        testJobRequest.setCompany("Tech Corp");
-        testJobRequest.setLocation("San Francisco, CA");
-        testJobRequest.setEmploymentType(EmploymentType.FULL_TIME);
-        testJobRequest.setSalaryMin(new BigDecimal("80000"));
-        testJobRequest.setSalaryMax(new BigDecimal("120000"));
-        testJobRequest.setSalaryCurrency("USD");
-        testJobRequest.setRequirements(Arrays.asList("Java", "Spring Boot"));
-        testJobRequest.setStatus(JobStatus.ACTIVE);
+        testJobResponse = new JobResponse(
+                /* id */ 1L,
+                /* employerId */ null,
+                /* title */ "Software Engineer",
+                /* description */ "Build amazing software",
+                /* company */ "Tech Corp",
+                /* location */ "San Francisco, CA",
+                /* employmentType */ EmploymentType.FULL_TIME,
+                /* salaryMin */ new BigDecimal("80000"),
+                /* salaryMax */ new BigDecimal("120000"),
+                /* salaryCurrency */ "USD",
+                /* requirements */ Arrays.asList("Java", "Spring Boot"),
+                /* status */ JobStatus.ACTIVE,
+                /* createdAt */ LocalDateTime.now(),
+                /* updatedAt */ LocalDateTime.now());
+
+        testJobRequest = new JobRequest(
+                /* title */ "Software Engineer",
+                /* description */ "Build amazing software",
+                /* company */ "Tech Corp",
+                /* location */ "San Francisco, CA",
+                /* employmentType */ EmploymentType.FULL_TIME,
+                /* salaryMin */ new BigDecimal("80000"),
+                /* salaryMax */ new BigDecimal("120000"),
+                /* salaryCurrency */ "USD",
+                /* requirements */ Arrays.asList("Java", "Spring Boot"),
+                /* status */ JobStatus.ACTIVE);
     }
 
     @Test
     void createJob_ValidRequest_ShouldReturnCreated() throws Exception {
-        when(jobService.createJob(any(JobRequest.class))).thenReturn(testJobResponse);
+        when(jobService.createJob(any(JobRequest.class), any())).thenReturn(testJobResponse);
 
-        mockMvc.perform(post("/jobs")
+        mockMvc.perform(post("/api/jobs")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testJobRequest)))
                 .andExpect(status().isCreated())
@@ -92,9 +93,9 @@ class JobControllerTest {
 
     @Test
     void createJob_InvalidRequest_ShouldReturnBadRequest() throws Exception {
-        JobRequest invalidRequest = new JobRequest();
+        JobRequest invalidRequest = new JobRequest(null, null, null, null, null, null, null, null, null, null);
 
-        mockMvc.perform(post("/jobs")
+        mockMvc.perform(post("/api/jobs")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest());
@@ -104,7 +105,7 @@ class JobControllerTest {
     void getJobById_WhenExists_ShouldReturnJob() throws Exception {
         when(jobService.getJobById(1L)).thenReturn(testJobResponse);
 
-        mockMvc.perform(get("/jobs/1"))
+        mockMvc.perform(get("/api/jobs/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.title").value("Software Engineer"));
@@ -114,7 +115,7 @@ class JobControllerTest {
     void getJobById_WhenNotExists_ShouldReturnNotFound() throws Exception {
         when(jobService.getJobById(99L)).thenThrow(new JobNotFoundException(99L));
 
-        mockMvc.perform(get("/jobs/99"))
+        mockMvc.perform(get("/api/jobs/99"))
                 .andExpect(status().isNotFound());
     }
 
@@ -125,7 +126,7 @@ class JobControllerTest {
 
         when(jobService.getAllJobs(any(Pageable.class))).thenReturn(page);
 
-        mockMvc.perform(get("/jobs"))
+        mockMvc.perform(get("/api/jobs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content[0].id").value(1));
@@ -133,9 +134,10 @@ class JobControllerTest {
 
     @Test
     void updateJob_WhenExists_ShouldReturnUpdatedJob() throws Exception {
+        when(jobService.getJobById(1L)).thenReturn(testJobResponse);
         when(jobService.updateJob(eq(1L), any(JobRequest.class))).thenReturn(testJobResponse);
 
-        mockMvc.perform(put("/jobs/1")
+        mockMvc.perform(put("/api/jobs/1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testJobRequest)))
                 .andExpect(status().isOk())
@@ -144,10 +146,9 @@ class JobControllerTest {
 
     @Test
     void updateJob_WhenNotExists_ShouldReturnNotFound() throws Exception {
-        when(jobService.updateJob(eq(99L), any(JobRequest.class)))
-                .thenThrow(new JobNotFoundException(99L));
+        when(jobService.getJobById(99L)).thenThrow(new JobNotFoundException(99L));
 
-        mockMvc.perform(put("/jobs/99")
+        mockMvc.perform(put("/api/jobs/99")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testJobRequest)))
                 .andExpect(status().isNotFound());
@@ -155,17 +156,18 @@ class JobControllerTest {
 
     @Test
     void deleteJob_WhenExists_ShouldReturnNoContent() throws Exception {
+        when(jobService.getJobById(1L)).thenReturn(testJobResponse);
         doNothing().when(jobService).deleteJob(1L);
 
-        mockMvc.perform(delete("/jobs/1"))
+        mockMvc.perform(delete("/api/jobs/1"))
                 .andExpect(status().isNoContent());
     }
 
     @Test
     void deleteJob_WhenNotExists_ShouldReturnNotFound() throws Exception {
-        doThrow(new JobNotFoundException(99L)).when(jobService).deleteJob(99L);
+        when(jobService.getJobById(99L)).thenThrow(new JobNotFoundException(99L));
 
-        mockMvc.perform(delete("/jobs/99"))
+        mockMvc.perform(delete("/api/jobs/99"))
                 .andExpect(status().isNotFound());
     }
 
@@ -176,7 +178,7 @@ class JobControllerTest {
 
         when(jobService.searchJobs(any(), any(Pageable.class))).thenReturn(page);
 
-        mockMvc.perform(get("/jobs/search")
+        mockMvc.perform(get("/api/jobs/search")
                 .param("title", "Software")
                 .param("location", "San Francisco"))
                 .andExpect(status().isOk())

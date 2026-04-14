@@ -1,0 +1,252 @@
+.employer-applications-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(0, 107, 60, 0.14), transparent 30%),
+    linear-gradient(180deg, #f5f8f5 0%, #eef4ee 100%);
+}
+
+.employer-applications-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.employer-applications-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.employer-applications-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6) var(--space-10);
+}
+
+.employer-applications-hero,
+.employer-applications-error,
+.employer-applications-empty,
+.employer-application-card {
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+}
+
+.employer-applications-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  gap: var(--space-6);
+  padding: var(--space-7);
+  border-radius: 28px;
+}
+
+.employer-applications-kicker {
+  display: inline-flex;
+  margin-bottom: var(--space-3);
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.employer-applications-hero h1 {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3vw, 2.8rem);
+  line-height: 1.05;
+}
+
+.employer-applications-hero p {
+  margin: 0;
+  max-width: 44rem;
+  color: var(--gray-600);
+  line-height: 1.6;
+}
+
+.employer-applications-stats {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.employer-applications-stat {
+  padding: var(--space-4);
+  border-radius: 22px;
+  background: rgba(0, 107, 60, 0.08);
+}
+
+.employer-applications-stat strong {
+  display: block;
+  font-size: 1.75rem;
+  color: var(--gray-900);
+}
+
+.employer-applications-stat span {
+  color: var(--gray-600);
+  font-size: 0.95rem;
+}
+
+.employer-applications-error,
+.employer-applications-empty {
+  margin-top: var(--space-6);
+  padding: var(--space-7);
+  border-radius: 24px;
+  text-align: center;
+}
+
+.employer-applications-error h2,
+.employer-applications-empty h1,
+.employer-applications-empty h2 {
+  margin: 0 0 var(--space-3);
+}
+
+.employer-applications-error p,
+.employer-applications-empty p {
+  margin: 0;
+  color: var(--gray-600);
+}
+
+.employer-applications-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.employer-applications-list {
+  display: grid;
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+}
+
+.employer-application-card {
+  padding: var(--space-6);
+  border-radius: 24px;
+}
+
+.employer-application-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.employer-application-card-top h2 {
+  margin: 0 0 var(--space-2);
+  font-size: 1.25rem;
+}
+
+.employer-application-card-top p {
+  margin: 0;
+  color: var(--gray-500);
+}
+
+.employer-application-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0 0 var(--space-5);
+}
+
+.employer-application-grid dt {
+  margin-bottom: var(--space-1);
+  color: var(--gray-500);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.employer-application-grid dd {
+  margin: 0;
+  color: var(--gray-900);
+  word-break: break-word;
+}
+
+.employer-application-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-5);
+}
+
+.employer-application-note {
+  color: var(--gray-600);
+  font-size: 0.95rem;
+}
+
+.employer-application-timeline {
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  padding-top: var(--space-4);
+}
+
+.employer-application-timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.employer-application-timeline-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.employer-application-timeline-header span {
+  color: var(--gray-500);
+  font-size: 0.9rem;
+}
+
+.employer-application-timeline-item {
+  display: grid;
+  grid-template-columns: 180px 180px 1fr;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.employer-application-timeline-item:first-of-type {
+  border-top: 0;
+}
+
+.employer-application-timeline-item strong {
+  color: var(--gray-900);
+}
+
+.employer-application-timeline-item span,
+.employer-application-timeline-item p {
+  color: var(--gray-600);
+}
+
+.employer-application-timeline-item p {
+  margin: 0;
+}
+
+@media (max-width: 960px) {
+  .employer-applications-topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .employer-applications-hero,
+  .employer-application-grid,
+  .employer-application-timeline-item {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .employer-applications-shell {
+    padding: var(--space-6) var(--space-4) var(--space-8);
+  }
+
+  .employer-application-card-top,
+  .employer-applications-actions,
+  .employer-application-actions,
+  .employer-application-timeline-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

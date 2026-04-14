@@ -29,6 +29,10 @@ services:
     url: ${JOB_SERVICE_URL:http://localhost:8081}
   auth-service:
     url: ${AUTH_SERVICE_URL:http://localhost:8082}
+  application-service:
+    url: ${APPLICATION_SERVICE_URL:http://localhost:8084}
+  profile-service:
+    url: ${PROFILE_SERVICE_URL:http://localhost:8085}
 
 management:
   endpoints:
