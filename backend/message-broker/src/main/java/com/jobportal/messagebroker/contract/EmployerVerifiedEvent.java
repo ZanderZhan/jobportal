@@ -4,7 +4,7 @@ import java.time.Instant;
 
 // Sent when an employer account becomes verified and can post jobs.
 public record EmployerVerifiedEvent(
-        Long employerId,
+        String employerId,
         String verificationStatus,
         Instant timestamp
 ) {
