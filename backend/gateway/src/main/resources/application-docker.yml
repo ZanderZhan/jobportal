@@ -30,6 +30,8 @@ services:
     url: ${APPLICATION_SERVICE_URL:http://application-service:8084}
   profile-service:
     url: ${PROFILE_SERVICE_URL:http://profile-service:8085}
+  notification-service:
+    url: ${NOTIFICATION_SERVICE_URL:http://notification-service:8086}
 
 management:
   endpoints:

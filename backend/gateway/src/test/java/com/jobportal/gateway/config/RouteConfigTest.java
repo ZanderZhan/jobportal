@@ -94,4 +94,30 @@ class RouteConfigTest {
             );
         assertThat(hasProfilesApiRoute).isTrue();
     }
+
+    @Test
+    void shouldHaveNotificationServiceRoute() {
+        var routes = routeLocator.getRoutes().collectList().block();
+
+        assertThat(routes).isNotNull();
+
+        boolean hasNotificationRoute = routes.stream()
+            .anyMatch(route -> route.getId().startsWith("notification-service"));
+        assertThat(hasNotificationRoute).isTrue();
+    }
+
+    @Test
+    void shouldRouteApiNotificationsRequestsToNotificationService() {
+        var routes = routeLocator.getRoutes().collectList().block();
+
+        assertThat(routes).isNotNull();
+
+        boolean hasNotificationsApiRoute = routes.stream()
+            .anyMatch(route ->
+                "notification-service-user".equals(route.getId())
+                    && route.getPredicate() != null
+                    && route.getPredicate().toString().contains("/api/notifications/**")
+            );
+        assertThat(hasNotificationsApiRoute).isTrue();
+    }
 }
