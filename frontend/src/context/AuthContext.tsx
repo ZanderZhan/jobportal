@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { api, setAccessToken, setRefreshToken } from '../lib/api';
+import { bootstrapNotifications } from '../lib/notificationApi';
 
 interface User {
   id: string;
@@ -48,6 +49,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    // Keep this silent: login should still work even if notification warm-up fails.
+    bootstrapNotifications().catch(() => {});
+  }, [user]);
 
   const login = async (email: string, password: string) => {
     const { data } = await api.post('/api/auth/login', { email, password });

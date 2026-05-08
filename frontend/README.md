@@ -1,6 +1,6 @@
 # Job Portal Frontend
 
-A modern React-based frontend for the Job Portal application, built with TypeScript and Vite.
+A modern React-based frontend for the Job Portal application, Built with TypeScript and Vite.
 
 ## Requirements
 

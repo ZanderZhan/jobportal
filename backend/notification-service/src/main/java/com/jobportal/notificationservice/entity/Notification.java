@@ -36,17 +36,23 @@ public class Notification {
     @Column(nullable = false, length = 64)
     private NotificationEventType eventType;
 
-    @Column(nullable = false)
-    private Long recipientUserId;
+    @Column(nullable = false, length = 100)
+    private String recipientUserId;
 
     @Column(length = 255)
     private String recipientEmail;
+
+    @Column(length = 255)
+    private String recipientName;
 
     @Column(nullable = false, length = 255)
     private String title;
 
     @Column(nullable = false, length = 2000)
     private String body;
+
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean actionRequired;
 
     // Email content is stored so failed deliveries can be retried later.
     @Column(length = 255)
@@ -66,6 +72,24 @@ public class Notification {
     private Instant createdAt;
 
     private Instant readAt;
+
+    @Column(length = 1000)
+    private String lastDeliveryError;
+
+    private Instant lastDeliveryAttemptAt;
+
+    private Instant nextRetryAt;
+
+    @Column(nullable = false)
+    private Integer emailAttemptCount = 0;
+
+    @Column(nullable = false)
+    private int retryCount = 0;
+
+    @Column(length = 1000)
+    private String failureReason;
+
+    private Instant lastAttemptedAt;
 
     @OneToMany(mappedBy = "notification", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<DeliveryRecord> deliveryRecords = new ArrayList<>();

@@ -33,6 +33,8 @@ services:
     url: ${APPLICATION_SERVICE_URL:http://localhost:8084}
   profile-service:
     url: ${PROFILE_SERVICE_URL:http://localhost:8085}
+  notification-service:
+    url: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
 
 management:
   endpoints:

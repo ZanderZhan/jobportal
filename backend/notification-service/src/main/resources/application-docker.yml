@@ -6,3 +6,6 @@ spring:
   rabbitmq:
     host: rabbitmq
     port: 5672
+  mail:
+    host: mailpit
+    port: 1025

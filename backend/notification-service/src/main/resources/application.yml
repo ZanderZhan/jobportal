@@ -1,9 +1,14 @@
 server:
-  port: 8084
+  port: 8086
 
 spring:
   application:
     name: notification-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:8082/.well-known/jwks.json}
   datasource:
     url: jdbc:postgresql://localhost:5432/jobportal
     username: postgres
@@ -25,6 +30,33 @@ spring:
     listener:
       simple:
         missing-queues-fatal: false
+  mail:
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:1025}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+  task:
+    scheduling:
+      pool:
+        size: 2
+
+notification:
+  topology:
+    declare-locally: ${NOTIFICATION_DECLARE_TOPOLOGY_LOCALLY:false}
+  mail:
+    from-address: ${NOTIFICATION_MAIL_FROM_ADDRESS:no-reply@jobportal.local}
+    from-name: ${NOTIFICATION_MAIL_FROM_NAME:Job Portal Notifications}
+  retry:
+    batch-size: ${NOTIFICATION_RETRY_BATCH_SIZE:20}
+    backoff-minutes: ${NOTIFICATION_RETRY_BACKOFF_MINUTES:5}
+    max-email-attempts: ${NOTIFICATION_RETRY_MAX_EMAIL_ATTEMPTS:3}
+    max-recipient-warmup-retries: ${NOTIFICATION_RETRY_MAX_RECIPIENT_WARMUP_RETRIES:3}
+    recipient-recovery-minutes: ${NOTIFICATION_RETRY_RECIPIENT_RECOVERY_MINUTES:30}
+    fixed-delay: ${NOTIFICATION_RETRY_FIXED_DELAY:300000}
 
 management:
   endpoints:
