@@ -16,6 +16,7 @@ public final class NotificationTopologyProperties {
     public static final String JOB_POSTED_RETRY_ROUTING_KEY = "job.posted.retry";
     public static final String EMPLOYER_VERIFIED_ROUTING_KEY = "auth.employer-verified";
     public static final String EMPLOYER_VERIFIED_RETRY_ROUTING_KEY = "auth.employer-verified.retry";
+    public static final String NOTIFICATION_DISPATCH_ROUTING_KEY = "notification.dispatch";
 
     // Queue names match the contracts prepared for the broker side.
     public static final String APPLICATION_SUBMITTED_QUEUE = "notification.application.submitted";
@@ -28,12 +29,14 @@ public final class NotificationTopologyProperties {
     public static final String JOB_POSTED_RETRY_QUEUE = "notification.job.posted.retry";
     public static final String EMPLOYER_VERIFIED_QUEUE = "notification.auth.employer-verified";
     public static final String EMPLOYER_VERIFIED_RETRY_QUEUE = "notification.auth.employer-verified.retry";
+    public static final String NOTIFICATION_DISPATCH_QUEUE = "notification.dispatch";
 
     public static final String APPLICATION_SUBMITTED_DLQ = "notification.application.submitted.dlq";
     public static final String APPLICATION_STATUS_CHANGED_DLQ = "notification.application.status-changed.dlq";
     public static final String APPLICATION_WITHDRAWN_DLQ = "notification.application.withdrawn.dlq";
     public static final String JOB_POSTED_DLQ = "notification.job.posted.dlq";
     public static final String EMPLOYER_VERIFIED_DLQ = "notification.auth.employer-verified.dlq";
+    public static final String NOTIFICATION_DISPATCH_DLQ = "notification.dispatch.dlq";
 
     public static final long RETRY_TTL_MILLIS = 10_000L;
 

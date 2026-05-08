@@ -3,11 +3,11 @@ package com.jobportal.notificationservice.service;
 import com.jobportal.notificationservice.config.NotificationRetryProperties;
 import com.jobportal.notificationservice.dto.EventNotificationRequest;
 import com.jobportal.notificationservice.dto.ManualNotificationRequest;
+import com.jobportal.notificationservice.dto.NotificationDispatchEvent;
 import com.jobportal.notificationservice.dto.NotificationResponse;
 import com.jobportal.notificationservice.dto.ResolvedRecipient;
 import com.jobportal.notificationservice.entity.DeliveryChannel;
 import com.jobportal.notificationservice.entity.Notification;
-import com.jobportal.notificationservice.entity.NotificationPreference;
 import com.jobportal.notificationservice.entity.NotificationStatus;
 import com.jobportal.notificationservice.entity.NotificationTemplate;
 import com.jobportal.notificationservice.exception.NotificationNotFoundException;
@@ -39,6 +39,7 @@ public class NotificationWorkflowService {
     private final NotificationMapper notificationMapper;
     private final NotificationActionPolicy notificationActionPolicy;
     private final NotificationRetryProperties retryProperties;
+    private final NotificationDispatchPublisher notificationDispatchPublisher;
 
     public NotificationWorkflowService(
             NotificationRepository notificationRepository,
@@ -50,7 +51,8 @@ public class NotificationWorkflowService {
             NotificationAccessService notificationAccessService,
             NotificationMapper notificationMapper,
             NotificationActionPolicy notificationActionPolicy,
-            NotificationRetryProperties retryProperties
+            NotificationRetryProperties retryProperties,
+            NotificationDispatchPublisher notificationDispatchPublisher
     ) {
         this.notificationRepository = notificationRepository;
         this.templateService = templateService;
@@ -62,6 +64,7 @@ public class NotificationWorkflowService {
         this.notificationMapper = notificationMapper;
         this.notificationActionPolicy = notificationActionPolicy;
         this.retryProperties = retryProperties;
+        this.notificationDispatchPublisher = notificationDispatchPublisher;
     }
 
     public NotificationResponse handleEvent(EventNotificationRequest request) {
@@ -103,17 +106,10 @@ public class NotificationWorkflowService {
 
         notification.setStatus(NotificationStatus.PENDING);
         notification.setNextRetryAt(null);
+        notification.setRetryCount(0);
+        notification.setFailureReason(null);
         refreshRecipientFromCache(notification);
-        NotificationPreference preference = preferenceService.resolvePreference(
-                notification.getRecipientUserId(),
-                notification.getEventType()
-        );
-        NotificationDeliveryResult result = notificationDeliveryService.continueEmailDelivery(notification, preference);
-
-        if (result.waitingForRecipient()) {
-            notificationDeliveryService.scheduleRecipientRecovery(notification);
-        }
-
+        publishDispatch(notification);
         return notificationMapper.toResponse(notification);
     }
 
@@ -148,8 +144,9 @@ public class NotificationWorkflowService {
                 retryBatch
         );
         for (Notification notification : dueEmailFailures.getContent()) {
-            refreshRecipientFromCache(notification);
-            notificationDeliveryService.retryEmail(notification);
+            notification.setStatus(NotificationStatus.PENDING);
+            notification.setNextRetryAt(null);
+            publishDispatch(notification);
             processedCount++;
         }
 
@@ -160,14 +157,7 @@ public class NotificationWorkflowService {
         );
         for (Notification notification : dueRecipientRecovery.getContent()) {
             refreshRecipientFromCache(notification);
-            NotificationPreference preference = preferenceService.resolvePreference(
-                    notification.getRecipientUserId(),
-                    notification.getEventType()
-            );
-            NotificationDeliveryResult result = notificationDeliveryService.continueEmailDelivery(notification, preference);
-            if (result.waitingForRecipient()) {
-                notificationDeliveryService.scheduleRecipientRecovery(notification);
-            }
+            publishDispatch(notification);
             processedCount++;
         }
 
@@ -177,7 +167,6 @@ public class NotificationWorkflowService {
     private NotificationProcessingResult processNewNotification(EventNotificationRequest request) {
         NotificationTemplate inAppTemplate = templateService.getActiveTemplate(request.eventType(), DeliveryChannel.IN_APP);
         ResolvedRecipient resolvedRecipient = resolveRecipient(request);
-        NotificationPreference preference = preferenceService.resolvePreference(resolvedRecipient.userId(), request.eventType());
         Map<String, String> templateData = enrichTemplateData(request, resolvedRecipient);
 
         Notification notification = new Notification();
@@ -201,12 +190,12 @@ public class NotificationWorkflowService {
         }
 
         notification = notificationRepository.save(notification);
-        NotificationDeliveryResult deliveryResult = notificationDeliveryService.deliverNew(notification, preference);
+        publishDispatch(notification);
 
         return new NotificationProcessingResult(
                 notification.getId(),
                 notificationMapper.toResponse(notification),
-                deliveryResult.waitingForRecipient()
+                false
         );
     }
 
@@ -214,17 +203,24 @@ public class NotificationWorkflowService {
         ResolvedRecipient resolvedRecipient = resolveRecipient(request);
         applyRecipientDetails(notification, resolvedRecipient);
 
-        NotificationPreference preference = preferenceService.resolvePreference(
-                notification.getRecipientUserId(),
-                notification.getEventType()
-        );
+        if (notification.getStatus() != NotificationStatus.SENT) {
+            publishDispatch(notification);
+        }
 
-        NotificationDeliveryResult deliveryResult = notificationDeliveryService.continueEmailDelivery(notification, preference);
         return new NotificationProcessingResult(
                 notification.getId(),
                 notificationMapper.toResponse(notification),
-                deliveryResult.waitingForRecipient()
+                false
         );
+    }
+
+    private void publishDispatch(Notification notification) {
+        notificationDispatchPublisher.publish(new NotificationDispatchEvent(
+                notification.getId(),
+                notification.getRecipientUserId(),
+                notification.getEventType(),
+                notification.getCreatedAt()
+        ));
     }
 
     private ResolvedRecipient resolveRecipient(EventNotificationRequest request) {

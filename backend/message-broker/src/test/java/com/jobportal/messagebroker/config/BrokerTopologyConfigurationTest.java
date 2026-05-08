@@ -86,6 +86,11 @@ class BrokerTopologyConfigurationTest {
                         && BrokerTopology.EMPLOYER_VERIFIED_QUEUE.equals(binding.getDestination())
                         && BrokerTopology.EMPLOYER_VERIFIED_ROUTING_KEY.equals(binding.getRoutingKey())
         ));
+        assertTrue(declarables.stream().anyMatch(declarable ->
+                declarable instanceof Binding binding
+                        && BrokerTopology.NOTIFICATION_DISPATCH_QUEUE.equals(binding.getDestination())
+                        && BrokerTopology.NOTIFICATION_DISPATCH_ROUTING_KEY.equals(binding.getRoutingKey())
+        ));
     }
 
     @Test
