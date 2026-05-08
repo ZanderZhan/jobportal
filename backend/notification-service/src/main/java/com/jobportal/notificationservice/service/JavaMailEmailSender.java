@@ -23,7 +23,7 @@ public class JavaMailEmailSender implements EmailSender {
     }
 
     @Override
-    public void send(String email, String subject, String body) {
+    public EmailSendResult send(String email, String subject, String body) {
         if (!StringUtils.hasText(email)) {
             throw new IllegalArgumentException("Recipient email is missing.");
         }
@@ -36,6 +36,7 @@ public class JavaMailEmailSender implements EmailSender {
             helper.setSubject(subject);
             helper.setText(body, false);
             javaMailSender.send(message);
+            return EmailSendResult.success();
         } catch (MessagingException | UnsupportedEncodingException ex) {
             throw new IllegalStateException("Could not build the email message.", ex);
         }

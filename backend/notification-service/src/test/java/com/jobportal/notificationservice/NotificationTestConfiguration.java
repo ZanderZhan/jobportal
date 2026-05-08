@@ -1,5 +1,6 @@
 package com.jobportal.notificationservice;
 
+import com.jobportal.notificationservice.service.EmailSendResult;
 import com.jobportal.notificationservice.service.EmailSender;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -14,8 +15,9 @@ public class NotificationTestConfiguration {
     EmailSender testEmailSender() {
         return (email, subject, body) -> {
             if (!StringUtils.hasText(email)) {
-                throw new IllegalArgumentException("Recipient email is missing.");
+                return EmailSendResult.permanentFailure("Recipient email is missing.");
             }
+            return EmailSendResult.success();
         };
     }
 }

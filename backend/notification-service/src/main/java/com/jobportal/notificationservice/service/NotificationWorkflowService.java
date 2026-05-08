@@ -11,6 +11,7 @@ import com.jobportal.notificationservice.entity.NotificationPreference;
 import com.jobportal.notificationservice.entity.NotificationStatus;
 import com.jobportal.notificationservice.entity.NotificationTemplate;
 import com.jobportal.notificationservice.exception.NotificationNotFoundException;
+import com.jobportal.notificationservice.exception.NotificationRetryNotAllowedException;
 import com.jobportal.notificationservice.repository.NotificationRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -92,6 +93,12 @@ public class NotificationWorkflowService {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new NotificationNotFoundException(notificationId));
 
+        if (notification.getStatus() == NotificationStatus.SENT) {
+            throw new NotificationRetryNotAllowedException(notificationId, "already sent");
+        }
+
+        notification.setStatus(NotificationStatus.PENDING);
+        notification.setNextRetryAt(null);
         refreshRecipientFromCache(notification);
         NotificationPreference preference = preferenceService.resolvePreference(
                 notification.getRecipientUserId(),
@@ -132,7 +139,7 @@ public class NotificationWorkflowService {
         Pageable retryBatch = PageRequest.of(0, batchSize, Sort.by(Sort.Direction.ASC, "nextRetryAt"));
 
         var dueEmailFailures = notificationRepository.findByStatusAndNextRetryAtBeforeOrderByNextRetryAtAsc(
-                NotificationStatus.RETRY_SCHEDULED,
+                NotificationStatus.RETRYING,
                 now,
                 retryBatch
         );
@@ -143,7 +150,7 @@ public class NotificationWorkflowService {
         }
 
         var dueRecipientRecovery = notificationRepository.findByStatusAndNextRetryAtBeforeOrderByNextRetryAtAsc(
-                NotificationStatus.PENDING_RECIPIENT,
+                NotificationStatus.PENDING,
                 now,
                 retryBatch
         );
@@ -178,7 +185,7 @@ public class NotificationWorkflowService {
         notification.setTitle(renderingService.render(inAppTemplate.getSubjectTemplate(), templateData));
         notification.setBody(renderingService.render(inAppTemplate.getBodyTemplate(), templateData));
         notification.setActionRequired(notificationActionPolicy.isActionRequired(request.eventType(), templateData));
-        notification.setStatus(NotificationStatus.CREATED);
+        notification.setStatus(NotificationStatus.PENDING);
         notification.setRead(false);
         notification.setCreatedAt(request.occurredAt() != null ? request.occurredAt() : Instant.now());
 

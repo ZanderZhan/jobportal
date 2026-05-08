@@ -83,6 +83,14 @@ public class Notification {
     @Column(nullable = false)
     private Integer emailAttemptCount = 0;
 
+    @Column(nullable = false)
+    private int retryCount = 0;
+
+    @Column(length = 1000)
+    private String failureReason;
+
+    private Instant lastAttemptedAt;
+
     @OneToMany(mappedBy = "notification", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<DeliveryRecord> deliveryRecords = new ArrayList<>();
 

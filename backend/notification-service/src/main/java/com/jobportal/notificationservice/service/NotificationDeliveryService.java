@@ -70,7 +70,7 @@ public class NotificationDeliveryService {
 
     public void scheduleRecipientRecovery(Notification notification) {
         notification.setNextRetryAt(Instant.now().plus(retryProperties.recipientRecoveryMinutes(), ChronoUnit.MINUTES));
-        notification.setStatus(NotificationStatus.PENDING_RECIPIENT);
+        notification.setStatus(NotificationStatus.PENDING);
     }
 
     private void ensureInAppDelivery(Notification notification, NotificationPreference preference) {
@@ -86,34 +86,61 @@ public class NotificationDeliveryService {
     }
 
     private NotificationDeliveryResult attemptEmailDelivery(Notification notification) {
+        if (notification.getStatus() == NotificationStatus.FAILED
+                && notification.getRetryCount() >= retryProperties.maxEmailAttempts()) {
+            notification.setNextRetryAt(null);
+            return new NotificationDeliveryResult(false);
+        }
+
         notification.setLastDeliveryAttemptAt(Instant.now());
+        notification.setLastAttemptedAt(notification.getLastDeliveryAttemptAt());
 
         if (!StringUtils.hasText(notification.getRecipientEmail())) {
             createDeliveryRecord(notification, DeliveryChannel.EMAIL, DeliveryStatus.PENDING, RECIPIENT_PENDING_MESSAGE, "recipient-cache");
             notification.setLastDeliveryError(RECIPIENT_PENDING_MESSAGE);
+            notification.setFailureReason(RECIPIENT_PENDING_MESSAGE);
             notification.setNextRetryAt(null);
+            notification.setStatus(NotificationStatus.PENDING);
             return new NotificationDeliveryResult(true);
         }
 
         notification.setEmailAttemptCount(notification.getEmailAttemptCount() + 1);
 
         try {
-            emailSender.send(notification.getRecipientEmail(), notification.getEmailSubject(), notification.getEmailBody());
-            createDeliveryRecord(notification, DeliveryChannel.EMAIL, DeliveryStatus.SENT, null, "smtp-javamail");
-            notification.setLastDeliveryError(null);
-            notification.setNextRetryAt(null);
+            EmailSendResult sendResult = emailSender.send(notification.getRecipientEmail(), notification.getEmailSubject(), notification.getEmailBody());
+            applyEmailResult(notification, sendResult);
         } catch (Exception ex) {
-            createDeliveryRecord(notification, DeliveryChannel.EMAIL, DeliveryStatus.FAILED, ex.getMessage(), "smtp-javamail");
-            notification.setLastDeliveryError(ex.getMessage());
-
-            if (notification.getEmailAttemptCount() < retryProperties.maxEmailAttempts()) {
-                notification.setNextRetryAt(Instant.now().plus(retryProperties.backoffMinutes(), ChronoUnit.MINUTES));
-            } else {
-                notification.setNextRetryAt(null);
-            }
+            applyEmailResult(notification, EmailSendResult.permanentFailure(ex.getMessage()));
         }
 
         return new NotificationDeliveryResult(false);
+    }
+
+    private void applyEmailResult(Notification notification, EmailSendResult sendResult) {
+        if (sendResult.successful()) {
+            createDeliveryRecord(notification, DeliveryChannel.EMAIL, DeliveryStatus.SENT, null, "email-sender");
+            notification.setLastDeliveryError(null);
+            notification.setFailureReason(null);
+            notification.setNextRetryAt(null);
+            notification.setStatus(NotificationStatus.SENT);
+            return;
+        }
+
+        String failureMessage = StringUtils.hasText(sendResult.message()) ? sendResult.message() : sendResult.status().name();
+        createDeliveryRecord(notification, DeliveryChannel.EMAIL, DeliveryStatus.FAILED, failureMessage, "email-sender");
+        notification.setRetryCount(notification.getRetryCount() + 1);
+        notification.setLastDeliveryError(failureMessage);
+        notification.setFailureReason(failureMessage);
+
+        boolean retryable = sendResult.status() == EmailSendStatus.TEMPORARY_FAILURE || sendResult.status() == EmailSendStatus.TIMEOUT;
+        if (retryable && notification.getRetryCount() < retryProperties.maxEmailAttempts()) {
+            notification.setNextRetryAt(Instant.now().plus(retryProperties.backoffMinutes(), ChronoUnit.MINUTES));
+            notification.setStatus(NotificationStatus.RETRYING);
+            return;
+        }
+
+        notification.setNextRetryAt(null);
+        notification.setStatus(NotificationStatus.FAILED);
     }
 
     private void refreshStatus(Notification notification) {
@@ -127,32 +154,32 @@ public class NotificationDeliveryService {
                 || !StringUtils.hasText(notification.getEmailSubject());
 
         if (!hasInAppSuccess && !hasEmailSuccess && inAppSkipped && emailSkipped) {
-            notification.setStatus(NotificationStatus.SUPPRESSED);
+            notification.setStatus(NotificationStatus.FAILED);
             return;
         }
 
         if (hasPendingRecipient && !hasEmailSuccess) {
-            notification.setStatus(NotificationStatus.PENDING_RECIPIENT);
+            notification.setStatus(NotificationStatus.PENDING);
             return;
         }
 
         if (hasEmailRetryScheduled) {
-            notification.setStatus(NotificationStatus.RETRY_SCHEDULED);
+            notification.setStatus(NotificationStatus.RETRYING);
             return;
         }
 
         if (hasInAppSuccess && (hasEmailSuccess || emailSkipped)) {
-            notification.setStatus(NotificationStatus.DELIVERED);
+            notification.setStatus(NotificationStatus.SENT);
             return;
         }
 
         if (hasEmailSuccess && !hasInAppSuccess) {
-            notification.setStatus(NotificationStatus.DELIVERED);
+            notification.setStatus(NotificationStatus.SENT);
             return;
         }
 
         if (hasInAppSuccess && hasEmailFailure) {
-            notification.setStatus(NotificationStatus.PARTIALLY_DELIVERED);
+            notification.setStatus(notification.getNextRetryAt() != null ? NotificationStatus.RETRYING : NotificationStatus.FAILED);
             return;
         }
 
@@ -161,7 +188,7 @@ public class NotificationDeliveryService {
             return;
         }
 
-        notification.setStatus(NotificationStatus.CREATED);
+        notification.setStatus(NotificationStatus.PENDING);
     }
 
     private boolean hasChannelRecord(Notification notification, DeliveryChannel channel) {
