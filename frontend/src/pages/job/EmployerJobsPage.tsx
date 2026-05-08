@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { isEmployerRole } from '../../lib/authRoles';
@@ -9,6 +9,8 @@ import {
   formatSalary,
   formatEmploymentType,
   formatDate,
+  getJobErrorMessage,
+  isJobAuthorizationError,
 } from '../../lib/jobApi';
 import './EmployerJobsPage.css';
 
@@ -25,19 +27,13 @@ export function EmployerJobsPage() {
 
   const isEmployer = isEmployerRole(user?.role, user?.userType);
 
-  useEffect(() => {
-    if (isAuthenticated && isEmployer) {
-      fetchJobs();
-    }
-  }, [isAuthenticated, isEmployer, page, statusFilter]);
-
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
       const response = await searchEmployerJobs({
         status: statusFilter || undefined,
-        employerId: user!.id,
+        employerId: user?.id,
         page,
         size: 10,
         sort: 'createdAt,desc',
@@ -45,12 +41,21 @@ export function EmployerJobsPage() {
       setJobs(response.content);
       setTotalPages(response.totalPages);
     } catch (err) {
-      setError('Failed to load jobs');
+      const fallback = isJobAuthorizationError(err)
+        ? 'Your account is not allowed to manage employer jobs.'
+        : 'Failed to load jobs';
+      setError(getJobErrorMessage(err, fallback));
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [page, statusFilter, user?.id]);
+
+  useEffect(() => {
+    if (isAuthenticated && isEmployer) {
+      void fetchJobs();
+    }
+  }, [fetchJobs, isAuthenticated, isEmployer]);
 
   const handleDelete = async (id: number) => {
     try {
@@ -59,7 +64,10 @@ export function EmployerJobsPage() {
       setDeleteConfirm(null);
       fetchJobs();
     } catch (err) {
-      setError('Failed to delete job');
+      const fallback = isJobAuthorizationError(err)
+        ? 'You are not allowed to delete this job.'
+        : 'Failed to delete job';
+      setError(getJobErrorMessage(err, fallback));
       console.error(err);
     } finally {
       setIsDeleting(false);

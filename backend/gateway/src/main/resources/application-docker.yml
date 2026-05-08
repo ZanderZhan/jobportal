@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: gateway
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://auth-service:8082/.well-known/jwks.json}
   cloud:
     gateway:
       default-filters:

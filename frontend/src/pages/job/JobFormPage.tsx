@@ -7,6 +7,8 @@ import {
   getJobById,
   createJob,
   updateJob,
+  getJobErrorMessage,
+  isJobAuthorizationError,
 } from '../../lib/jobApi';
 import './JobFormPage.css';
 
@@ -76,7 +78,10 @@ export function JobFormPage() {
       });
       setRequirements((job.requirements || []).map((text) => ({ id: `req-${++requirementCounter.current}`, text })));
     } catch (err) {
-      setError('Failed to load job');
+      const fallback = isJobAuthorizationError(err)
+        ? 'You are not allowed to edit this job.'
+        : 'Failed to load job';
+      setError(getJobErrorMessage(err, fallback));
       console.error(err);
     } finally {
       setIsFetching(false);
@@ -125,8 +130,11 @@ export function JobFormPage() {
         await createJob(payload);
       }
       navigate('/employer/jobs');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save job');
+    } catch (err: unknown) {
+      const fallback = isJobAuthorizationError(err)
+        ? 'You are not allowed to create or edit jobs with this account.'
+        : 'Failed to save job';
+      setError(getJobErrorMessage(err, fallback));
       console.error(err);
     } finally {
       setIsLoading(false);

@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios';
 import { api } from './api';
 
 export interface Job {
@@ -46,6 +47,11 @@ export interface PagedResponse<T> {
 }
 
 const JOB_API_PATH = '/api/jobs';
+
+interface ErrorResponse {
+  message?: string;
+  errors?: Record<string, string>;
+}
 
 function buildSearchParams(params: JobSearchParams = {}) {
   const searchParams = new URLSearchParams();
@@ -119,6 +125,24 @@ export async function updateJob(id: number, job: JobRequest): Promise<Job> {
 
 export async function deleteJob(id: number): Promise<void> {
   await api.delete(`${JOB_API_PATH}/${id}`);
+}
+
+export function getJobErrorMessage(error: unknown, fallback: string): string {
+  if (!isAxiosError(error)) {
+    return fallback;
+  }
+
+  const data = error.response?.data as ErrorResponse | undefined;
+  if (data?.message) {
+    return data.message;
+  }
+
+  const firstValidationError = data?.errors && Object.values(data.errors)[0];
+  return firstValidationError || fallback;
+}
+
+export function isJobAuthorizationError(error: unknown): boolean {
+  return isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403);
 }
 
 export function formatSalary(min: number | null, max: number | null, currency: string | null): string {

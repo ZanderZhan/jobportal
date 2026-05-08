@@ -6,10 +6,12 @@ import com.jobportal.jobservice.dto.JobSearchCriteria;
 import com.jobportal.jobservice.entity.Job;
 import com.jobportal.jobservice.exception.JobNotFoundException;
 import com.jobportal.jobservice.repository.JobRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @Transactional
@@ -23,8 +25,9 @@ public class JobServiceImpl implements JobService {
 
     @Override
     public JobResponse createJob(JobRequest request, String employerId) {
+        String callerId = requireAuthenticatedCallerId(employerId);
         Job job = mapRequestToEntity(request, new Job());
-        job.setEmployerId(employerId);
+        job.setEmployerId(callerId);
         Job savedJob = jobRepository.save(job);
         return JobResponse.fromEntity(savedJob);
     }
@@ -45,9 +48,10 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
-    public JobResponse updateJob(Long id, JobRequest request) {
+    public JobResponse updateJob(Long id, JobRequest request, String callerId) {
         Job existingJob = jobRepository.findById(id)
                 .orElseThrow(() -> new JobNotFoundException(id));
+        ensureOwnership(existingJob, callerId);
 
         Job updatedJob = mapRequestToEntity(request, existingJob);
         Job savedJob = jobRepository.save(updatedJob);
@@ -55,10 +59,10 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
-    public void deleteJob(Long id) {
-        if (!jobRepository.existsById(id)) {
-            throw new JobNotFoundException(id);
-        }
+    public void deleteJob(Long id, String callerId) {
+        Job existingJob = jobRepository.findById(id)
+                .orElseThrow(() -> new JobNotFoundException(id));
+        ensureOwnership(existingJob, callerId);
         jobRepository.deleteById(id);
     }
 
@@ -92,6 +96,21 @@ public class JobServiceImpl implements JobService {
             job.setStatus(request.status());
         }
         return job;
+    }
+
+    private String requireAuthenticatedCallerId(String callerId) {
+        if (!StringUtils.hasText(callerId)) {
+            throw new AccessDeniedException("Authenticated employer identity is required.");
+        }
+        return callerId;
+    }
+
+    private void ensureOwnership(Job existingJob, String callerId) {
+        String resolvedCallerId = requireAuthenticatedCallerId(callerId);
+        String ownerId = existingJob.getEmployerId();
+        if (!StringUtils.hasText(ownerId) || !ownerId.equals(resolvedCallerId)) {
+            throw new AccessDeniedException("Forbidden – caller does not own this job.");
+        }
     }
 
 }

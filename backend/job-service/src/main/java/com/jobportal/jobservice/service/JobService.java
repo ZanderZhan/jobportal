@@ -14,9 +14,9 @@ public interface JobService {
 
     Page<JobResponse> getAllJobs(Pageable pageable);
 
-    JobResponse updateJob(Long id, JobRequest request);
+    JobResponse updateJob(Long id, JobRequest request, String callerId);
 
-    void deleteJob(Long id);
+    void deleteJob(Long id, String callerId);
 
     Page<JobResponse> searchJobs(JobSearchCriteria criteria, Pageable pageable);
 }

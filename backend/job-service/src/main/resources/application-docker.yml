@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: job-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://auth-service:8082/.well-known/jwks.json}
   datasource:
     url: jdbc:postgresql://postgres:5432/jobportal
     username: postgres

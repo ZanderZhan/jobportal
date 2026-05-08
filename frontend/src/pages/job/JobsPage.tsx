@@ -527,7 +527,7 @@ export default function JobsPage() {
           currentPage: response.number,
         }));
         setDiscovery(deriveDiscovery(response.content, baseParams));
-      } catch (requestError) {
+      } catch {
         if (!ignore) {
           setError('Failed to load jobs. Please try again.');
           setJobs([]);

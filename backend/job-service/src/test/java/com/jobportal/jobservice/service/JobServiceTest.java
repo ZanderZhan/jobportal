@@ -8,6 +8,7 @@ import com.jobportal.jobservice.entity.Job.EmploymentType;
 import com.jobportal.jobservice.entity.Job.JobStatus;
 import com.jobportal.jobservice.exception.JobNotFoundException;
 import com.jobportal.jobservice.repository.JobRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -79,6 +80,12 @@ class JobServiceTest {
     }
 
     @Test
+    void createJob_WhenCallerMissing_ShouldThrowAccessDenied() {
+        assertThrows(AccessDeniedException.class, () -> jobService.createJob(testRequest, null));
+        verify(jobRepository, never()).save(any(Job.class));
+    }
+
+    @Test
     void getJobById_WhenJobExists_ShouldReturnJob() {
         when(jobRepository.findById(1L)).thenReturn(Optional.of(testJob));
 
@@ -113,6 +120,7 @@ class JobServiceTest {
 
     @Test
     void updateJob_WhenJobExists_ShouldReturnUpdatedJob() {
+        testJob.setEmployerId("employer-123");
         when(jobRepository.findById(1L)).thenReturn(Optional.of(testJob));
         when(jobRepository.save(any(Job.class))).thenReturn(testJob);
 
@@ -121,7 +129,7 @@ class JobServiceTest {
                 testRequest.location(), testRequest.employmentType(),
                 testRequest.salaryMin(), testRequest.salaryMax(), testRequest.salaryCurrency(),
                 testRequest.requirements(), testRequest.status());
-        JobResponse response = jobService.updateJob(1L, updateRequest);
+        JobResponse response = jobService.updateJob(1L, updateRequest, "employer-123");
 
         assertNotNull(response);
         verify(jobRepository, times(1)).save(any(Job.class));
@@ -131,24 +139,42 @@ class JobServiceTest {
     void updateJob_WhenJobNotExists_ShouldThrowException() {
         when(jobRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(JobNotFoundException.class, () -> jobService.updateJob(99L, testRequest));
+        assertThrows(JobNotFoundException.class, () -> jobService.updateJob(99L, testRequest, "employer-123"));
+    }
+
+    @Test
+    void updateJob_WhenCallerDoesNotOwnJob_ShouldThrowAccessDenied() {
+        testJob.setEmployerId("owner-1");
+        when(jobRepository.findById(1L)).thenReturn(Optional.of(testJob));
+
+        assertThrows(AccessDeniedException.class, () -> jobService.updateJob(1L, testRequest, "other-owner"));
+        verify(jobRepository, never()).save(any(Job.class));
     }
 
     @Test
     void deleteJob_WhenJobExists_ShouldDeleteJob() {
-        when(jobRepository.existsById(1L)).thenReturn(true);
-        doNothing().when(jobRepository).deleteById(1L);
+        testJob.setEmployerId("employer-123");
+        when(jobRepository.findById(1L)).thenReturn(Optional.of(testJob));
 
-        jobService.deleteJob(1L);
+        jobService.deleteJob(1L, "employer-123");
 
         verify(jobRepository, times(1)).deleteById(1L);
     }
 
     @Test
     void deleteJob_WhenJobNotExists_ShouldThrowException() {
-        when(jobRepository.existsById(99L)).thenReturn(false);
+        when(jobRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(JobNotFoundException.class, () -> jobService.deleteJob(99L));
+        assertThrows(JobNotFoundException.class, () -> jobService.deleteJob(99L, "employer-123"));
+    }
+
+    @Test
+    void deleteJob_WhenCallerDoesNotOwnJob_ShouldThrowAccessDenied() {
+        testJob.setEmployerId("owner-1");
+        when(jobRepository.findById(1L)).thenReturn(Optional.of(testJob));
+
+        assertThrows(AccessDeniedException.class, () -> jobService.deleteJob(1L, "other-owner"));
+        verify(jobRepository, never()).deleteById(any(Long.class));
     }
 
     @Test

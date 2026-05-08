@@ -10,6 +10,7 @@ description = "API Gateway for Job Portal"
 
 java {
     toolchain {
+        // Toolchain locked to Java 21 for CI compatibility. Local environment lacks Java 21; tests remain blocked here.
         languageVersion = JavaLanguageVersion.of(21)
     }
 }

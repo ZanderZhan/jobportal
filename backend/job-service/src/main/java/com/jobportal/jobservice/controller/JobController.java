@@ -11,7 +11,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import com.jobportal.jobservice.exception.JobNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +18,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -42,8 +42,8 @@ public class JobController {
     })
     public ResponseEntity<JobResponse> createJob(
             @Valid @RequestBody JobRequest request,
-            @RequestHeader(value = "X-User-Id", required = false) String employerId) {
-        JobResponse response = jobService.createJob(request, employerId);
+            Authentication authentication) {
+        JobResponse response = jobService.createJob(request, resolveCallerId(authentication));
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
@@ -79,13 +79,8 @@ public class JobController {
     public ResponseEntity<JobResponse> updateJob(
             @Parameter(description = "Job ID") @PathVariable Long id,
             @Valid @RequestBody JobRequest request,
-            @RequestHeader(value = "X-User-Id", required = false) String callerId) {
-        JobResponse existing = jobService.getJobById(id);
-        if (existing.employerId() != null
-                && (callerId == null || !existing.employerId().equals(callerId))) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-        JobResponse response = jobService.updateJob(id, request);
+            Authentication authentication) {
+        JobResponse response = jobService.updateJob(id, request, resolveCallerId(authentication));
         return ResponseEntity.ok(response);
     }
 
@@ -98,13 +93,8 @@ public class JobController {
     })
     public ResponseEntity<Void> deleteJob(
             @Parameter(description = "Job ID") @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) String callerId) {
-        JobResponse existing = jobService.getJobById(id);
-        if (existing.employerId() != null
-                && (callerId == null || !existing.employerId().equals(callerId))) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-        jobService.deleteJob(id);
+            Authentication authentication) {
+        jobService.deleteJob(id, resolveCallerId(authentication));
         return ResponseEntity.noContent().build();
     }
 
@@ -126,5 +116,9 @@ public class JobController {
 
         Page<JobResponse> results = jobService.searchJobs(criteria, pageable);
         return ResponseEntity.ok(results);
+    }
+
+    private String resolveCallerId(Authentication authentication) {
+        return authentication != null ? authentication.getName() : null;
     }
 }
