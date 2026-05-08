@@ -3,11 +3,9 @@ package com.jobportal.notificationservice.service;
 import com.jobportal.notificationservice.NotificationTestConfiguration;
 import com.jobportal.notificationservice.dto.EventNotificationRequest;
 import com.jobportal.notificationservice.dto.NotificationResponse;
-import com.jobportal.notificationservice.entity.DeliveryChannel;
-import com.jobportal.notificationservice.entity.DeliveryStatus;
+import com.jobportal.notificationservice.dto.UpdateNotificationPreferenceRequest;
 import com.jobportal.notificationservice.entity.NotificationEventType;
 import com.jobportal.notificationservice.entity.NotificationStatus;
-import com.jobportal.notificationservice.repository.DeliveryRecordRepository;
 import com.jobportal.notificationservice.repository.NotificationPreferenceRepository;
 import com.jobportal.notificationservice.repository.NotificationRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,9 +34,6 @@ class NotificationWorkflowServiceTest {
     private NotificationTemplateService templateService;
 
     @Autowired
-    private NotificationQueryService notificationQueryService;
-
-    @Autowired
     private NotificationPreferenceService notificationPreferenceService;
 
     @Autowired
@@ -48,16 +43,17 @@ class NotificationWorkflowServiceTest {
     private NotificationPreferenceRepository notificationPreferenceRepository;
 
     @Autowired
-    private DeliveryRecordRepository deliveryRecordRepository;
+    private NotificationTestConfiguration.CapturingNotificationDispatchPublisher notificationDispatchPublisher;
 
     @BeforeEach
     void clearNotifications() {
         notificationRepository.deleteAll();
         notificationPreferenceRepository.deleteAll();
+        notificationDispatchPublisher.clear();
     }
 
     @Test
-    void shouldCreateNotificationAndLeaveNotificationPendingWhenRecipientEmailMissing() {
+    void shouldCreatePendingNotificationAndPublishDispatchEvent() {
         NotificationResponse response = workflowService.handleEvent(new EventNotificationRequest(
                 "application-submitted-100",
                 NotificationEventType.APPLICATION_SUBMITTED,
@@ -79,13 +75,10 @@ class NotificationWorkflowServiceTest {
         assertEquals(NotificationStatus.PENDING, response.status());
         assertEquals(false, response.actionRequired());
         assertEquals(1, notificationRepository.findAll().size());
-
-        var deliveries = deliveryRecordRepository.findByNotificationIdOrderByAttemptNoAsc(response.id());
-        assertEquals(2, deliveries.size());
-        assertEquals(DeliveryChannel.IN_APP, deliveries.get(0).getChannel());
-        assertEquals(DeliveryStatus.SENT, deliveries.get(0).getStatus());
-        assertEquals(DeliveryChannel.EMAIL, deliveries.get(1).getChannel());
-        assertEquals(DeliveryStatus.PENDING, deliveries.get(1).getStatus());
+        assertEquals(1, notificationDispatchPublisher.events().size());
+        assertEquals(response.id(), notificationDispatchPublisher.events().getFirst().notificationId());
+        assertEquals("student-15", notificationDispatchPublisher.events().getFirst().recipientId());
+        assertEquals(NotificationEventType.APPLICATION_SUBMITTED, notificationDispatchPublisher.events().getFirst().type());
     }
 
     @Test
@@ -117,11 +110,11 @@ class NotificationWorkflowServiceTest {
     }
 
     @Test
-    void shouldRespectStoredPreferencesAndSkipEmailDelivery() {
+    void shouldDeferEmailPreferenceHandlingToDispatchConsumer() {
         notificationPreferenceService.updatePreference(
                 "student-88",
                 NotificationEventType.APPLICATION_WITHDRAWN,
-                new com.jobportal.notificationservice.dto.UpdateNotificationPreferenceRequest(true, false)
+                new UpdateNotificationPreferenceRequest(true, false)
         );
 
         NotificationResponse response = workflowService.handleEvent(new EventNotificationRequest(
@@ -137,11 +130,33 @@ class NotificationWorkflowServiceTest {
                 )
         ));
 
-        assertEquals(NotificationStatus.SENT, response.status());
+        assertEquals(NotificationStatus.PENDING, response.status());
+        assertEquals(1, notificationDispatchPublisher.events().size());
+        assertEquals(response.id(), notificationDispatchPublisher.events().getFirst().notificationId());
+    }
 
-        var deliveries = deliveryRecordRepository.findByNotificationIdOrderByAttemptNoAsc(response.id());
-        assertEquals(2, deliveries.size());
-        assertEquals(DeliveryStatus.SKIPPED, deliveries.get(1).getStatus());
+    @Test
+    void shouldPublishDispatchEventInsteadOfSendingSynchronouslyOnManualRetry() {
+        NotificationResponse response = workflowService.handleEvent(new EventNotificationRequest(
+                "application-submitted-retry-101",
+                NotificationEventType.APPLICATION_SUBMITTED,
+                "student-15",
+                "student15@example.com",
+                "Student Fifteen",
+                Instant.parse("2026-04-07T22:00:00Z"),
+                Map.of(
+                        "applicationId", "101",
+                        "jobId", "55"
+                )
+        ));
+        notificationDispatchPublisher.clear();
+
+        NotificationResponse retried = workflowService.retry(response.id());
+
+        assertEquals(NotificationStatus.PENDING, retried.status());
+        assertEquals(1, notificationDispatchPublisher.events().size());
+        assertEquals(response.id(), notificationDispatchPublisher.events().getFirst().notificationId());
+        assertEquals("student-15", notificationDispatchPublisher.events().getFirst().recipientId());
     }
 
     @Test

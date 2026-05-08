@@ -7,9 +7,9 @@ import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 @Configuration
 public class NotificationBrokerTopologyConfiguration {
@@ -71,6 +71,12 @@ public class NotificationBrokerTopologyConfiguration {
         );
         Queue employerVerifiedDlq = durableQueue(NotificationTopologyProperties.EMPLOYER_VERIFIED_DLQ);
 
+        Queue notificationDispatchQueue = durableQueue(
+                NotificationTopologyProperties.NOTIFICATION_DISPATCH_QUEUE,
+                NotificationTopologyProperties.NOTIFICATION_DISPATCH_DLQ
+        );
+        Queue notificationDispatchDlq = durableQueue(NotificationTopologyProperties.NOTIFICATION_DISPATCH_DLQ);
+
         return new Declarables(
                 eventsExchange,
                 deadLetterExchange,
@@ -89,6 +95,8 @@ public class NotificationBrokerTopologyConfiguration {
                 employerVerifiedQueue,
                 employerVerifiedRetryQueue,
                 employerVerifiedDlq,
+                notificationDispatchQueue,
+                notificationDispatchDlq,
                 bind(applicationSubmittedQueue, eventsExchange, NotificationTopologyProperties.APPLICATION_SUBMITTED_ROUTING_KEY),
                 bind(applicationSubmittedRetryQueue, eventsExchange, NotificationTopologyProperties.APPLICATION_SUBMITTED_RETRY_ROUTING_KEY),
                 bind(applicationSubmittedDlq, deadLetterExchange, NotificationTopologyProperties.APPLICATION_SUBMITTED_DLQ),
@@ -103,7 +111,9 @@ public class NotificationBrokerTopologyConfiguration {
                 bind(jobPostedDlq, deadLetterExchange, NotificationTopologyProperties.JOB_POSTED_DLQ),
                 bind(employerVerifiedQueue, eventsExchange, NotificationTopologyProperties.EMPLOYER_VERIFIED_ROUTING_KEY),
                 bind(employerVerifiedRetryQueue, eventsExchange, NotificationTopologyProperties.EMPLOYER_VERIFIED_RETRY_ROUTING_KEY),
-                bind(employerVerifiedDlq, deadLetterExchange, NotificationTopologyProperties.EMPLOYER_VERIFIED_DLQ)
+                bind(employerVerifiedDlq, deadLetterExchange, NotificationTopologyProperties.EMPLOYER_VERIFIED_DLQ),
+                bind(notificationDispatchQueue, eventsExchange, NotificationTopologyProperties.NOTIFICATION_DISPATCH_ROUTING_KEY),
+                bind(notificationDispatchDlq, deadLetterExchange, NotificationTopologyProperties.NOTIFICATION_DISPATCH_DLQ)
         );
     }
 

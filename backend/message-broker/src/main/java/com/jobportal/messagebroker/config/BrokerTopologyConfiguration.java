@@ -51,6 +51,11 @@ public class BrokerTopologyConfiguration {
                 BrokerTopology.EMPLOYER_VERIFIED_DLQ
         );
         Queue employerVerifiedDlq = durableQueue(BrokerTopology.EMPLOYER_VERIFIED_DLQ);
+        Queue notificationDispatchQueue = durableQueue(
+                BrokerTopology.NOTIFICATION_DISPATCH_QUEUE,
+                BrokerTopology.NOTIFICATION_DISPATCH_DLQ
+        );
+        Queue notificationDispatchDlq = durableQueue(BrokerTopology.NOTIFICATION_DISPATCH_DLQ);
 
         return new Declarables(
                 eventsExchange,
@@ -65,6 +70,8 @@ public class BrokerTopologyConfiguration {
                 jobPostedDlq,
                 employerVerifiedQueue,
                 employerVerifiedDlq,
+                notificationDispatchQueue,
+                notificationDispatchDlq,
                 bind(applicationSubmittedQueue, eventsExchange, BrokerTopology.APPLICATION_SUBMITTED_ROUTING_KEY),
                 bind(applicationSubmittedDlq, deadLetterExchange, BrokerTopology.APPLICATION_SUBMITTED_DLQ),
                 bind(applicationStatusChangedQueue, eventsExchange, BrokerTopology.APPLICATION_STATUS_CHANGED_ROUTING_KEY),
@@ -74,7 +81,9 @@ public class BrokerTopologyConfiguration {
                 bind(jobPostedQueue, eventsExchange, BrokerTopology.JOB_POSTED_ROUTING_KEY),
                 bind(jobPostedDlq, deadLetterExchange, BrokerTopology.JOB_POSTED_DLQ),
                 bind(employerVerifiedQueue, eventsExchange, BrokerTopology.EMPLOYER_VERIFIED_ROUTING_KEY),
-                bind(employerVerifiedDlq, deadLetterExchange, BrokerTopology.EMPLOYER_VERIFIED_DLQ)
+                bind(employerVerifiedDlq, deadLetterExchange, BrokerTopology.EMPLOYER_VERIFIED_DLQ),
+                bind(notificationDispatchQueue, eventsExchange, BrokerTopology.NOTIFICATION_DISPATCH_ROUTING_KEY),
+                bind(notificationDispatchDlq, deadLetterExchange, BrokerTopology.NOTIFICATION_DISPATCH_DLQ)
         );
     }
 

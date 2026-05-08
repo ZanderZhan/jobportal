@@ -41,6 +41,9 @@ class AdminNotificationControllerTest {
     @Autowired
     private NotificationPreferenceRepository notificationPreferenceRepository;
 
+    @Autowired
+    private NotificationTestConfiguration.CapturingNotificationDispatchPublisher notificationDispatchPublisher;
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -50,6 +53,7 @@ class AdminNotificationControllerTest {
                 .build();
         notificationRepository.deleteAll();
         notificationPreferenceRepository.deleteAll();
+        notificationDispatchPublisher.clear();
     }
 
     @Test
@@ -88,14 +92,17 @@ class AdminNotificationControllerTest {
     }
 
     @Test
-    void shouldAllowAdminToRetryFailedNotificationSynchronously() throws Exception {
+    void shouldAllowAdminToRetryFailedNotificationByRequeueingDispatch() throws Exception {
         Long notificationId = notificationRepository.save(notification(NotificationStatus.FAILED)).getId();
 
         mockMvc.perform(post("/api/admin/notifications/{id}/retry", notificationId)
                         .with(adminJwt())
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("SENT"));
+                .andExpect(jsonPath("$.status").value("PENDING"));
+
+        org.junit.jupiter.api.Assertions.assertEquals(1, notificationDispatchPublisher.events().size());
+        org.junit.jupiter.api.Assertions.assertEquals(notificationId, notificationDispatchPublisher.events().getFirst().notificationId());
     }
 
     @Test
