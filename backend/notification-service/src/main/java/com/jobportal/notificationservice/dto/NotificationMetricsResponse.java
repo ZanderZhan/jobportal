@@ -2,10 +2,10 @@ package com.jobportal.notificationservice.dto;
 
 public record NotificationMetricsResponse(
         long totalNotifications,
-        long deliveredNotifications,
+        long sentNotifications,
         long failedNotifications,
-        long retryScheduledNotifications,
-        long suppressedNotifications,
+        long retryingNotifications,
+        long pendingNotifications,
         long storedPreferences,
         long activeTemplates
 ) {

@@ -154,7 +154,7 @@ public class NotificationDeliveryService {
                 || !StringUtils.hasText(notification.getEmailSubject());
 
         if (!hasInAppSuccess && !hasEmailSuccess && inAppSkipped && emailSkipped) {
-            notification.setStatus(NotificationStatus.FAILED);
+            notification.setStatus(NotificationStatus.SENT);
             return;
         }
 

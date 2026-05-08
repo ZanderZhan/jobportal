@@ -8,13 +8,10 @@ export type NotificationEventType =
   | 'EMPLOYER_VERIFIED';
 
 export type NotificationStatus =
-  | 'CREATED'
-  | 'PENDING_RECIPIENT'
-  | 'RETRY_SCHEDULED'
-  | 'PARTIALLY_DELIVERED'
-  | 'DELIVERED'
+  | 'PENDING'
+  | 'SENT'
   | 'FAILED'
-  | 'SUPPRESSED';
+  | 'RETRYING';
 
 export interface NotificationItem {
   id: number;
@@ -39,8 +36,8 @@ export interface NotificationSummary {
   unreadCount: number;
   actionRequiredCount: number;
   failedCount: number;
-  pendingRecipientCount: number;
-  retryScheduledCount: number;
+  pendingCount: number;
+  retryingCount: number;
   latestNotificationAt: string | null;
 }
 

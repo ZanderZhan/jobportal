@@ -109,7 +109,7 @@ export function DashboardPage() {
                 <StatCard label="Active applications" value="0" icon="briefcase" />
                 <StatCard label="Unread messages" value={formatMetric(summary?.unreadCount, loadingSummary)} icon="message" />
                 <StatCard label="Action needed" value={formatMetric(summary?.actionRequiredCount, loadingSummary)} icon="alert" />
-                <StatCard label="Email waiting" value={formatMetric(summary?.pendingRecipientCount, loadingSummary)} icon="clock" />
+                <StatCard label="Pending delivery" value={formatMetric(summary?.pendingCount, loadingSummary)} icon="clock" />
               </>
             )}
           </div>

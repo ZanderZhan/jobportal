@@ -97,6 +97,10 @@ public class NotificationWorkflowService {
             throw new NotificationRetryNotAllowedException(notificationId, "already sent");
         }
 
+        if (notification.getRetryCount() >= retryProperties.maxEmailAttempts()) {
+            throw new NotificationRetryNotAllowedException(notificationId, "max retry attempts reached");
+        }
+
         notification.setStatus(NotificationStatus.PENDING);
         notification.setNextRetryAt(null);
         refreshRecipientFromCache(notification);

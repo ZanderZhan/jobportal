@@ -97,7 +97,7 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.totalCount").value(1))
                 .andExpect(jsonPath("$.unreadCount").value(1))
                 .andExpect(jsonPath("$.actionRequiredCount").value(0))
-                .andExpect(jsonPath("$.pendingRecipientCount").value(0));
+                .andExpect(jsonPath("$.pendingCount").value(0));
     }
 
     @Test

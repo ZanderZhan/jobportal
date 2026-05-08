@@ -3,6 +3,7 @@ package com.jobportal.notificationservice.service;
 import com.jobportal.notificationservice.config.NotificationMailProperties;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
@@ -25,7 +26,7 @@ public class JavaMailEmailSender implements EmailSender {
     @Override
     public EmailSendResult send(String email, String subject, String body) {
         if (!StringUtils.hasText(email)) {
-            throw new IllegalArgumentException("Recipient email is missing.");
+            return EmailSendResult.permanentFailure("Recipient email is missing.");
         }
 
         try {
@@ -37,8 +38,10 @@ public class JavaMailEmailSender implements EmailSender {
             helper.setText(body, false);
             javaMailSender.send(message);
             return EmailSendResult.success();
+        } catch (MailException ex) {
+            return EmailSendResult.temporaryFailure(ex.getMessage());
         } catch (MessagingException | UnsupportedEncodingException ex) {
-            throw new IllegalStateException("Could not build the email message.", ex);
+            return EmailSendResult.permanentFailure("Could not build the email message.");
         }
     }
 }

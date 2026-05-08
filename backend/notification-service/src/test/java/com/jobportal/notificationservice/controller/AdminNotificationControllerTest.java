@@ -108,6 +108,18 @@ class AdminNotificationControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void shouldRejectAdminRetryWhenMaxAttemptsReached() throws Exception {
+        Notification notification = notification(NotificationStatus.FAILED);
+        notification.setRetryCount(3);
+        Long notificationId = notificationRepository.save(notification).getId();
+
+        mockMvc.perform(post("/api/admin/notifications/{id}/retry", notificationId)
+                        .with(adminJwt())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+    }
+
     private org.springframework.test.web.servlet.request.RequestPostProcessor adminJwt() {
         return jwt().jwt(jwt -> jwt
                         .subject("admin-1")

@@ -160,7 +160,7 @@ public class NotificationQueryService {
                 notificationRepository.countByStatus(NotificationStatus.SENT),
                 notificationRepository.countByStatus(NotificationStatus.FAILED),
                 notificationRepository.countByStatus(NotificationStatus.RETRYING),
-                0,
+                notificationRepository.countByStatus(NotificationStatus.PENDING),
                 notificationPreferenceService.countStoredPreferences(),
                 notificationTemplateService.countActiveTemplates()
         );

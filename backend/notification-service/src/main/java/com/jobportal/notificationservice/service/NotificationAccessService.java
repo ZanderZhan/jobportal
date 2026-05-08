@@ -50,7 +50,7 @@ public class NotificationAccessService {
         return role;
     }
 
-    public void requireAdmin(String role) {
+    public void requireAdminOrOperator(String role) {
         if (!isAdminOrOperator(role)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This action is limited to admins or operators.");
         }

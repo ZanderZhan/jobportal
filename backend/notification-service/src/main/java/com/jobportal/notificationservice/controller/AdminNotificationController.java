@@ -43,7 +43,7 @@ public class AdminNotificationController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        notificationAccessService.requireAdmin(userRole);
+        notificationAccessService.requireAdminOrOperator(userRole);
         return notificationQueryService.getFailedNotifications(page, size);
     }
 
@@ -51,7 +51,7 @@ public class AdminNotificationController {
     public NotificationMetricsResponse getMetrics(
             @RequestHeader(value = "X-User-Role", required = false) String userRole
     ) {
-        notificationAccessService.requireAdmin(userRole);
+        notificationAccessService.requireAdminOrOperator(userRole);
         return notificationQueryService.getMetrics();
     }
 
@@ -60,7 +60,7 @@ public class AdminNotificationController {
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @PathVariable Long notificationId
     ) {
-        notificationAccessService.requireAdmin(userRole);
+        notificationAccessService.requireAdminOrOperator(userRole);
         return notificationWorkflowService.retry(notificationId);
     }
 
@@ -69,7 +69,7 @@ public class AdminNotificationController {
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Valid @RequestBody ManualNotificationRequest request
     ) {
-        notificationAccessService.requireAdmin(userRole);
+        notificationAccessService.requireAdminOrOperator(userRole);
         return notificationWorkflowService.dispatchManualNotification(request);
     }
 
@@ -77,7 +77,7 @@ public class AdminNotificationController {
     public Map<String, Integer> retryDueNotifications(
             @RequestHeader(value = "X-User-Role", required = false) String userRole
     ) {
-        notificationAccessService.requireAdmin(userRole);
+        notificationAccessService.requireAdminOrOperator(userRole);
         return Map.of("processedCount", notificationWorkflowService.retryDueNotifications());
     }
 }
