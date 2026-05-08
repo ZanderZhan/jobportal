@@ -50,9 +50,9 @@ public class NotificationAccessService {
         return role;
     }
 
-    public void requireAdmin(String role) {
-        if (!isAdmin(role)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This action is limited to admins.");
+    public void requireAdminOrOperator(String role) {
+        if (!isAdminOrOperator(role)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This action is limited to admins or operators.");
         }
     }
 
@@ -68,6 +68,11 @@ public class NotificationAccessService {
 
     public boolean isAdmin(String role) {
         return "ADMIN".equalsIgnoreCase(requireRole(role));
+    }
+
+    public boolean isAdminOrOperator(String role) {
+        String resolvedRole = requireRole(role);
+        return "ADMIN".equalsIgnoreCase(resolvedRole) || "OPERATOR".equalsIgnoreCase(resolvedRole);
     }
 
     private Jwt requireJwt() {

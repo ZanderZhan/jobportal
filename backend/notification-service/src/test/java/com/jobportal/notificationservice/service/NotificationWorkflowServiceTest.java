@@ -76,7 +76,7 @@ class NotificationWorkflowServiceTest {
         assertEquals("student-15", response.recipientUserId());
         assertEquals("Wenkai Zhu", response.recipientName());
         assertEquals("Application received", response.title());
-        assertEquals(NotificationStatus.PENDING_RECIPIENT, response.status());
+        assertEquals(NotificationStatus.PENDING, response.status());
         assertEquals(false, response.actionRequired());
         assertEquals(1, notificationRepository.findAll().size());
 
@@ -137,7 +137,7 @@ class NotificationWorkflowServiceTest {
                 )
         ));
 
-        assertEquals(NotificationStatus.DELIVERED, response.status());
+        assertEquals(NotificationStatus.SENT, response.status());
 
         var deliveries = deliveryRecordRepository.findByNotificationIdOrderByAttemptNoAsc(response.id());
         assertEquals(2, deliveries.size());

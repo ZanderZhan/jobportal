@@ -35,7 +35,7 @@ public class NotificationTemplateController {
     public List<NotificationTemplateResponse> getTemplates(
             @RequestHeader(value = "X-User-Role", required = false) String userRole
     ) {
-        notificationAccessService.requireAdmin(userRole);
+        notificationAccessService.requireAdminOrOperator(userRole);
         return templateService.getActiveTemplates();
     }
 
@@ -44,7 +44,7 @@ public class NotificationTemplateController {
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Valid @RequestBody CreateTemplateRequest request
     ) {
-        notificationAccessService.requireAdmin(userRole);
+        notificationAccessService.requireAdminOrOperator(userRole);
         return templateService.createTemplate(request);
     }
 
@@ -53,7 +53,7 @@ public class NotificationTemplateController {
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Valid @RequestBody TemplatePreviewRequest request
     ) {
-        notificationAccessService.requireAdmin(userRole);
+        notificationAccessService.requireAdminOrOperator(userRole);
         return templateService.previewTemplate(request);
     }
 }

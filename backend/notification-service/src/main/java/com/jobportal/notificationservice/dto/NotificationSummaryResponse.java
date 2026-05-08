@@ -7,8 +7,8 @@ public record NotificationSummaryResponse(
         long unreadCount,
         long actionRequiredCount,
         long failedCount,
-        long pendingRecipientCount,
-        long retryScheduledCount,
+        long pendingCount,
+        long retryingCount,
         Instant latestNotificationAt
 ) {
 }

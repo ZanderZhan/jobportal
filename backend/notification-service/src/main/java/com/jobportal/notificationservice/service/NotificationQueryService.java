@@ -113,8 +113,8 @@ public class NotificationQueryService {
                 notificationRepository.countByRecipientUserIdAndReadFalse(recipientUserId),
                 notificationRepository.countByRecipientUserIdAndActionRequiredTrueAndReadFalse(recipientUserId),
                 notificationRepository.countByRecipientUserIdAndStatus(recipientUserId, NotificationStatus.FAILED),
-                notificationRepository.countByRecipientUserIdAndStatus(recipientUserId, NotificationStatus.PENDING_RECIPIENT),
-                notificationRepository.countByRecipientUserIdAndStatus(recipientUserId, NotificationStatus.RETRY_SCHEDULED),
+                notificationRepository.countByRecipientUserIdAndStatus(recipientUserId, NotificationStatus.PENDING),
+                notificationRepository.countByRecipientUserIdAndStatus(recipientUserId, NotificationStatus.RETRYING),
                 latestNotificationAt
         );
     }
@@ -157,10 +157,10 @@ public class NotificationQueryService {
     public NotificationMetricsResponse getMetrics() {
         return new NotificationMetricsResponse(
                 notificationRepository.count(),
-                notificationRepository.countByStatus(NotificationStatus.DELIVERED),
+                notificationRepository.countByStatus(NotificationStatus.SENT),
                 notificationRepository.countByStatus(NotificationStatus.FAILED),
-                notificationRepository.countByStatus(NotificationStatus.RETRY_SCHEDULED),
-                notificationRepository.countByStatus(NotificationStatus.SUPPRESSED),
+                notificationRepository.countByStatus(NotificationStatus.RETRYING),
+                notificationRepository.countByStatus(NotificationStatus.PENDING),
                 notificationPreferenceService.countStoredPreferences(),
                 notificationTemplateService.countActiveTemplates()
         );

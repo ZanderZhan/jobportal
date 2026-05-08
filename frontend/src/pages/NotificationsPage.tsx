@@ -151,8 +151,8 @@ export function NotificationsPage() {
                 </svg>
               </div>
               <div>
-                <p className="dashboard-stat-value">{loading ? '--' : bootstrap?.summary.pendingRecipientCount ?? 0}</p>
-                <p className="dashboard-stat-label">Email waiting</p>
+                <p className="dashboard-stat-value">{loading ? '--' : bootstrap?.summary.pendingCount ?? 0}</p>
+                <p className="dashboard-stat-label">Pending delivery</p>
               </div>
             </div>
           </section>
