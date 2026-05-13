@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -184,5 +185,20 @@ class JobControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content[0].title").value("Software Engineer"));
+    }
+
+    @Test
+    void searchJobs_WithoutSort_ShouldUseCreatedAtDescendingDefault() throws Exception {
+        Page<JobResponse> page = new PageImpl<>(List.of(testJobResponse));
+        when(jobService.searchJobs(any(), any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/api/jobs/search"))
+                .andExpect(status().isOk());
+
+        verify(jobService).searchJobs(
+                any(),
+                argThat(pageable -> pageable.getSort().getOrderFor("createdAt") != null
+                        && pageable.getSort().getOrderFor("createdAt").isDescending())
+        );
     }
 }
