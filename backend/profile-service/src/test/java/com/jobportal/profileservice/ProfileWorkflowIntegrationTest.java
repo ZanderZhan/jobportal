@@ -103,7 +103,8 @@ class ProfileWorkflowIntegrationTest {
                 .andExpect(jsonPath("$.completedFields").value(9))
                 .andExpect(jsonPath("$.percentage").value(100))
                 .andExpect(jsonPath("$.complete").value(true))
-                .andExpect(jsonPath("$.missingFields").isEmpty());
+                .andExpect(jsonPath("$.missingFields").isEmpty())
+                .andExpect(jsonPath("$.missingFieldLabels").isEmpty());
 
         var savedProfile = studentProfileRepository.findByUserId("student-88").orElseThrow();
         assertEquals("Backend Engineer", savedProfile.getHeadline());

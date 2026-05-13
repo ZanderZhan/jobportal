@@ -178,7 +178,8 @@ class ProfileControllerTest {
                         9,
                         67,
                         false,
-                        List.of("phone", "experience", "portfolioLinks")
+                        List.of("phone", "experience", "portfolioLinks"),
+                        List.of("Phone", "Experience", "Portfolio links")
                 ));
 
         mockMvc.perform(get("/api/profiles/me/completeness")
@@ -187,6 +188,37 @@ class ProfileControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.completedFields").value(6))
                 .andExpect(jsonPath("$.percentage").value(67))
-                .andExpect(jsonPath("$.missingFields[0]").value("phone"));
+                .andExpect(jsonPath("$.missingFields[0]").value("phone"))
+                .andExpect(jsonPath("$.missingFieldLabels[0]").value("Phone"));
+    }
+
+    @Test
+    void updateCurrentProfile_WithInvalidPortfolioUrl_ShouldReturnBadRequest() throws Exception {
+        StudentProfileUpdateRequest invalidRequest = new StudentProfileUpdateRequest(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(new com.jobportal.profileservice.dto.PortfolioLinkRequest(
+                        "Portfolio",
+                        "github.com/student-1"
+                ))
+        );
+
+        mockMvc.perform(put("/api/profiles/me")
+                        .header("X-User-Id", "student-1")
+                        .header("X-User-Role", "STUDENT")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors['portfolioLinks[0].url']").value(
+                        "Portfolio link URL must start with http:// or https://"
+                ));
     }
 }

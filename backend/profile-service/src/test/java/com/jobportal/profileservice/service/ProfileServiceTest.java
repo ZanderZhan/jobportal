@@ -86,7 +86,7 @@ class ProfileServiceTest {
                         "+353 555 0101",
                         ProfileVisibility.PUBLIC,
                         "OPEN_TO_WORK",
-                        List.of("Java", "Spring Boot"),
+                        List.of("Java", "Spring Boot", " java ", "JAVA"),
                         List.of(new com.jobportal.profileservice.dto.EducationEntryRequest(
                                 "University of Limerick",
                                 "BSc",
@@ -111,6 +111,7 @@ class ProfileServiceTest {
         assertEquals("Backend Engineer", response.headline());
         assertEquals(ProfileVisibility.PUBLIC, response.visibility());
         assertEquals(2, response.skills().size());
+        assertEquals(List.of("Java", "Spring Boot"), response.skills());
         assertEquals(1, response.education().size());
         assertEquals(1, response.experience().size());
         assertEquals(1, response.portfolioLinks().size());
@@ -138,6 +139,17 @@ class ProfileServiceTest {
                 "experience",
                 "portfolioLinks"
         ), response.missingFields());
+        assertEquals(List.of(
+                "Headline",
+                "Bio",
+                "Location",
+                "Phone",
+                "Job search status",
+                "Skills",
+                "Education",
+                "Experience",
+                "Portfolio links"
+        ), response.missingFieldLabels());
     }
 
     @Test
