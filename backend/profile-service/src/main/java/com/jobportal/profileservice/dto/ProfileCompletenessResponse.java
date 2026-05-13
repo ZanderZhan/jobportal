@@ -7,5 +7,6 @@ public record ProfileCompletenessResponse(
         int totalFields,
         int percentage,
         boolean complete,
-        List<String> missingFields
+        List<String> missingFields,
+        List<String> missingFieldLabels
 ) {}

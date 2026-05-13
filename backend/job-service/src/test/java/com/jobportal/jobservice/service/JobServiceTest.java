@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -27,6 +28,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -167,5 +169,99 @@ class JobServiceTest {
 
         assertNotNull(response);
         assertEquals(1, response.getTotalElements());
+    }
+
+    @Test
+    void searchJobs_ShouldForwardAllSearchFilters() {
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "title"));
+        Page<Job> jobPage = new PageImpl<>(List.of(testJob), pageable, 1);
+        JobSearchCriteria criteria = new JobSearchCriteria(
+                "Software",
+                "Tech",
+                "San Francisco",
+                EmploymentType.FULL_TIME,
+                new BigDecimal("70000"),
+                new BigDecimal("130000"),
+                JobStatus.ACTIVE,
+                "employer-123"
+        );
+
+        when(jobRepository.searchJobs(
+                eq("Software"),
+                eq("Tech"),
+                eq("San Francisco"),
+                eq(EmploymentType.FULL_TIME),
+                eq(new BigDecimal("70000")),
+                eq(new BigDecimal("130000")),
+                eq(JobStatus.ACTIVE),
+                eq("employer-123"),
+                eq(pageable)
+        )).thenReturn(jobPage);
+
+        Page<JobResponse> response = jobService.searchJobs(criteria, pageable);
+
+        assertEquals(1, response.getTotalElements());
+        verify(jobRepository).searchJobs(
+                eq("Software"),
+                eq("Tech"),
+                eq("San Francisco"),
+                eq(EmploymentType.FULL_TIME),
+                eq(new BigDecimal("70000")),
+                eq(new BigDecimal("130000")),
+                eq(JobStatus.ACTIVE),
+                eq("employer-123"),
+                eq(pageable)
+        );
+    }
+
+    @Test
+    void searchJobs_WhenPageableIsUnsorted_ShouldUseCreatedAtDescendingSort() {
+        Pageable unsortedPageable = PageRequest.of(0, 10);
+        Page<Job> jobPage = new PageImpl<>(List.of(testJob), unsortedPageable, 1);
+        JobSearchCriteria criteria = new JobSearchCriteria(null, null, null, null, null, null, null, null);
+
+        when(jobRepository.searchJobs(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)
+        )).thenReturn(jobPage);
+
+        jobService.searchJobs(criteria, unsortedPageable);
+
+        verify(jobRepository).searchJobs(
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                argThat(pageable -> pageable.getSort().getOrderFor("createdAt") != null
+                        && pageable.getSort().getOrderFor("createdAt").getDirection() == Sort.Direction.DESC)
+        );
+    }
+
+    @Test
+    void searchJobs_WhenPageableAlreadyHasSort_ShouldPreserveRequestedSort() {
+        Pageable titleSortedPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "title"));
+        Page<Job> jobPage = new PageImpl<>(List.of(testJob), titleSortedPageable, 1);
+        JobSearchCriteria criteria = new JobSearchCriteria(null, null, null, null, null, null, null, null);
+
+        when(jobRepository.searchJobs(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)
+        )).thenReturn(jobPage);
+
+        jobService.searchJobs(criteria, titleSortedPageable);
+
+        verify(jobRepository).searchJobs(
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                eq(titleSortedPageable)
+        );
     }
 }

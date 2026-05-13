@@ -6,11 +6,23 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ProfileCompletionServiceImpl implements ProfileCompletionService {
 
     private static final int TOTAL_FIELDS = 9;
+    private static final Map<String, String> FIELD_LABELS = Map.of(
+            "headline", "Headline",
+            "bio", "Bio",
+            "location", "Location",
+            "phone", "Phone",
+            "jobSearchStatus", "Job search status",
+            "skills", "Skills",
+            "education", "Education",
+            "experience", "Experience",
+            "portfolioLinks", "Portfolio links"
+    );
 
     @Override
     public ProfileCompletenessResponse calculate(StudentProfile profile) {
@@ -34,7 +46,10 @@ public class ProfileCompletionServiceImpl implements ProfileCompletionService {
                 TOTAL_FIELDS,
                 percentage,
                 completedFields == TOTAL_FIELDS,
-                List.copyOf(missingFields)
+                List.copyOf(missingFields),
+                missingFields.stream()
+                        .map(field -> FIELD_LABELS.getOrDefault(field, field))
+                        .toList()
         );
     }
 

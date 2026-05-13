@@ -7,7 +7,9 @@ import com.jobportal.jobservice.entity.Job;
 import com.jobportal.jobservice.exception.JobNotFoundException;
 import com.jobportal.jobservice.repository.JobRepository;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,6 +67,7 @@ public class JobServiceImpl implements JobService {
     @Override
     @Transactional(readOnly = true)
     public Page<JobResponse> searchJobs(JobSearchCriteria criteria, Pageable pageable) {
+        Pageable effectivePageable = withDefaultSearchSort(pageable);
         return jobRepository.searchJobs(
                 criteria.title(),
                 criteria.company(),
@@ -74,8 +77,19 @@ public class JobServiceImpl implements JobService {
                 criteria.salaryMax(),
                 criteria.status(),
                 criteria.employerId(),
-                pageable
+                effectivePageable
         ).map(JobResponse::fromEntity);
+    }
+
+    private Pageable withDefaultSearchSort(Pageable pageable) {
+        if (pageable.getSort().isSorted()) {
+            return pageable;
+        }
+        return PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
     }
 
     private Job mapRequestToEntity(JobRequest request, Job job) {
