@@ -6,6 +6,7 @@ import com.jobportal.profileservice.dto.PortfolioLinkRequest;
 import com.jobportal.profileservice.dto.ProfileCompletenessResponse;
 import com.jobportal.profileservice.dto.StudentProfileResponse;
 import com.jobportal.profileservice.dto.StudentProfileUpdateRequest;
+import com.jobportal.profileservice.config.CorrelationIdMdcFilter;
 import com.jobportal.profileservice.entity.StudentProfile;
 import com.jobportal.profileservice.entity.StudentProfileEducation;
 import com.jobportal.profileservice.entity.StudentProfileExperience;
@@ -13,15 +14,23 @@ import com.jobportal.profileservice.entity.StudentProfilePortfolioLink;
 import com.jobportal.profileservice.entity.StudentProfileSkill;
 import com.jobportal.profileservice.exception.ProfileServiceException;
 import com.jobportal.profileservice.repository.StudentProfileRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 @Service
 @Transactional
 public class ProfileServiceImpl implements ProfileService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProfileServiceImpl.class);
 
     private static final String STUDENT_ROLE = "STUDENT";
     private static final String JOB_SEEKER_ROLE = "JOB_SEEKER";
@@ -54,6 +63,12 @@ public class ProfileServiceImpl implements ProfileService {
         applyRequest(profile, request);
 
         StudentProfile savedProfile = studentProfileRepository.saveAndFlush(profile);
+        log.info(
+                "Student profile updated userId={} sections={} correlationId={}",
+                normalizedUserId,
+                changedSections(request),
+                correlationId()
+        );
         return StudentProfileResponse.fromEntity(savedProfile);
     }
 
@@ -99,9 +114,14 @@ public class ProfileServiceImpl implements ProfileService {
 
     private List<StudentProfileSkill> mapSkills(List<String> skillNames) {
         List<StudentProfileSkill> skills = new ArrayList<>();
+        Set<String> seenSkillNames = new LinkedHashSet<>();
         for (String skillName : skillNames) {
             String normalizedSkillName = normalize(skillName);
             if (normalizedSkillName == null) {
+                continue;
+            }
+            String dedupeKey = normalizedSkillName.toLowerCase(Locale.ROOT);
+            if (!seenSkillNames.add(dedupeKey)) {
                 continue;
             }
             StudentProfileSkill skill = new StudentProfileSkill();
@@ -170,6 +190,31 @@ public class ProfileServiceImpl implements ProfileService {
         }
 
         return normalizedUserId;
+    }
+
+    private List<String> changedSections(StudentProfileUpdateRequest request) {
+        List<String> sections = new ArrayList<>();
+        addSectionIfPresent(sections, "headline", request.headline());
+        addSectionIfPresent(sections, "bio", request.bio());
+        addSectionIfPresent(sections, "location", request.location());
+        addSectionIfPresent(sections, "phone", request.phone());
+        addSectionIfPresent(sections, "visibility", request.visibility());
+        addSectionIfPresent(sections, "jobSearchStatus", request.jobSearchStatus());
+        addSectionIfPresent(sections, "skills", request.skills());
+        addSectionIfPresent(sections, "education", request.education());
+        addSectionIfPresent(sections, "experience", request.experience());
+        addSectionIfPresent(sections, "portfolioLinks", request.portfolioLinks());
+        return List.copyOf(sections);
+    }
+
+    private void addSectionIfPresent(List<String> sections, String sectionName, Object value) {
+        if (value != null) {
+            sections.add(sectionName);
+        }
+    }
+
+    private String correlationId() {
+        return MDC.get(CorrelationIdMdcFilter.MDC_KEY);
     }
 
     private String normalize(String value) {

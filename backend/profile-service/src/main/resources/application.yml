@@ -19,6 +19,9 @@ spring:
         format_sql: true
     open-in-view: false
 
+profile:
+  correlation-id-header: ${PROFILE_CORRELATION_ID_HEADER:X-Request-ID}
+
 springdoc:
   api-docs:
     path: /api-docs
