@@ -215,6 +215,34 @@ class ApplicationServiceTest {
     }
 
     @Test
+    void withdrawApplication_WhenApplicationIsAlreadyHired_ShouldThrowConflictAndKeepStatus() {
+        Application application = Application.createSubmitted(
+                "student-1",
+                5L,
+                "employer-2",
+                "Backend Engineer",
+                "resume://student-1.pdf",
+                "student-1"
+        );
+        application.updateStatus(ApplicationStatus.HIRED, "employer-2", "Candidate hired");
+        when(applicationRepository.findByIdAndStudentId(15L, "student-1"))
+                .thenReturn(java.util.Optional.of(application));
+        when(applicationStatusPolicyService.canWithdraw(ApplicationStatus.HIRED))
+                .thenReturn(false);
+
+        ApplicationServiceException ex = assertThrows(
+                ApplicationServiceException.class,
+                () -> applicationService.withdrawApplication(15L, "student-1", "JOB_SEEKER")
+        );
+
+        assertEquals("APPLICATION_WITHDRAWAL_NOT_ALLOWED", ex.getErrorCode());
+        assertEquals(409, ex.getHttpStatus());
+        assertEquals(ApplicationStatus.HIRED, application.getStatus());
+        verify(applicationRepository, never()).saveAndFlush(any());
+        verify(applicationEventPublisher, never()).publishWithdrawn(any());
+    }
+
+    @Test
     void getEmployerApplicationsForJob_ShouldReturnApplicationsWhenEmployerOwnsJob() {
         Application first = Application.createSubmitted(
                 "student-1",

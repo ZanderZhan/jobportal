@@ -3,6 +3,7 @@ package com.jobportal.applicationservice.service;
 import com.jobportal.applicationservice.dto.ApplicationCreateRequest;
 import com.jobportal.applicationservice.dto.ApplicationResponse;
 import com.jobportal.applicationservice.dto.ApplicationStatusUpdateRequest;
+import com.jobportal.applicationservice.config.CorrelationIdMdcFilter;
 import com.jobportal.applicationservice.event.ApplicationStatusUpdatedEvent;
 import com.jobportal.applicationservice.event.ApplicationSubmittedEvent;
 import com.jobportal.applicationservice.event.ApplicationWithdrawnEvent;
@@ -11,6 +12,9 @@ import com.jobportal.applicationservice.entity.ApplicationStatus;
 import com.jobportal.applicationservice.exception.ApplicationServiceException;
 import com.jobportal.applicationservice.repository.ApplicationRepository;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -22,6 +26,8 @@ import java.util.List;
 @Service
 @Transactional
 public class ApplicationServiceImpl implements ApplicationService {
+
+    private static final Logger log = LoggerFactory.getLogger(ApplicationServiceImpl.class);
 
     private static final String STUDENT_ROLE = "STUDENT";
     private static final String JOB_SEEKER_ROLE = "JOB_SEEKER";
@@ -67,6 +73,13 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         try {
             Application savedApplication = applicationRepository.save(application);
+            log.info(
+                    "Application submitted applicationId={} studentId={} jobId={} correlationId={}",
+                    savedApplication.getId(),
+                    savedApplication.getStudentId(),
+                    savedApplication.getJobId(),
+                    correlationId()
+            );
             publishAfterCommit(() -> applicationEventPublisher.publishSubmitted(
                     new ApplicationSubmittedEvent(
                             savedApplication.getId(),
@@ -125,6 +138,13 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         application.withdraw(normalizedStudentId, "Application withdrawn by student");
         Application savedApplication = applicationRepository.saveAndFlush(application);
+        log.info(
+                "Application withdrawn applicationId={} studentId={} jobId={} correlationId={}",
+                savedApplication.getId(),
+                savedApplication.getStudentId(),
+                savedApplication.getJobId(),
+                correlationId()
+        );
         publishAfterCommit(() -> applicationEventPublisher.publishWithdrawn(
                 new ApplicationWithdrawnEvent(
                         savedApplication.getId(),
@@ -178,6 +198,16 @@ public class ApplicationServiceImpl implements ApplicationService {
                 buildEmployerReason(previousStatus, request.status(), request.reason())
         );
         Application savedApplication = applicationRepository.saveAndFlush(application);
+        log.info(
+                "Application status updated applicationId={} studentId={} employerId={} jobId={} oldStatus={} newStatus={} correlationId={}",
+                savedApplication.getId(),
+                savedApplication.getStudentId(),
+                normalizedEmployerId,
+                savedApplication.getJobId(),
+                previousStatus,
+                savedApplication.getStatus(),
+                correlationId()
+        );
         publishAfterCommit(() -> applicationEventPublisher.publishStatusUpdated(
                 new ApplicationStatusUpdatedEvent(
                         savedApplication.getId(),
@@ -258,13 +288,29 @@ public class ApplicationServiceImpl implements ApplicationService {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    action.run();
+                    runEventPublication(action);
                 }
             });
             return;
         }
 
-        action.run();
+        runEventPublication(action);
+    }
+
+    private void runEventPublication(Runnable action) {
+        try {
+            action.run();
+        } catch (RuntimeException ex) {
+            log.warn(
+                    "Application event publication failed after persistence correlationId={}",
+                    correlationId(),
+                    ex
+            );
+        }
+    }
+
+    private String correlationId() {
+        return MDC.get(CorrelationIdMdcFilter.MDC_KEY);
     }
 
     private String normalize(String value) {
